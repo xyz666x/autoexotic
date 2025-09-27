@@ -25,18 +25,6 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 # ---------- PRICING & DISCOUNTS -----------
-ITEM_PRICES = {
-    "Repair Kit": 400,
-    "Car Wax": 2000,
-    "NOS": 1500,
-    "Adv Lockpick": 400,
-    "Lockpick": 250,
-    "Wash Kit": 300,
-    "Harness": 12000,
-    "Tire Repair Kit": 600,  # Added new item
-    "Engine Oil": 800,       # Added new item
-    "Spark Plugs": 300,      # Added new item
-}
 PART_COST = 125
 LABOR = 450
 MEMBERSHIP_DISCOUNTS = {
@@ -121,6 +109,14 @@ def init_db():
         location TEXT
       )
     """)
+    # items
+    c.execute("""
+      CREATE TABLE IF NOT EXISTS items (
+        name TEXT PRIMARY KEY,
+        price REAL,
+        stock INTEGER
+      )
+    """)
     # soft-deletes for bills
     c.execute("""
       CREATE TABLE IF NOT EXISTS bills_deleted (
@@ -184,6 +180,21 @@ def init_db():
             c.execute(stmt)
         except sqlite3.OperationalError:
             pass
+    conn.commit()
+    # Populate initial items if table is empty
+    initial_items = {
+        "Repair Kit": (400, 0),
+        "Car Wax": (2000, 0),
+        "NOS": (1500, 0),
+        "Adv Lockpick": (400, 0),
+        "Lockpick": (250, 0),
+        "Wash Kit": (300, 0),
+        "Harness": (12000, 0),
+    }
+    item_count = c.execute("SELECT COUNT(*) FROM items").fetchone()[0]
+    if item_count == 0:
+        for name, (price, stock) in initial_items.items():
+            c.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
     conn.commit()
     conn.close()
 init_db()
@@ -494,6 +505,35 @@ def get_employees_by_hood(hood):
     rows = conn.execute("SELECT cid, name FROM employees WHERE hood=?", (hood,)).fetchall()
     conn.close()
     return rows
+# ---------- ITEMS HELPERS ----------
+def add_item(name, price, stock):
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    try:
+        conn.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        st.warning("Item name already exists.")
+    conn.close()
+def update_item(name, price=None, stock=None):
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    if price is not None and stock is not None:
+        conn.execute("UPDATE items SET price = ?, stock = ? WHERE name = ?", (price, stock, name))
+    elif price is not None:
+        conn.execute("UPDATE items SET price = ? WHERE name = ?", (price, name))
+    elif stock is not None:
+        conn.execute("UPDATE items SET stock = ? WHERE name = ?", (stock, name))
+    conn.commit()
+    conn.close()
+def delete_item(name):
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    conn.execute("DELETE FROM items WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()
+def get_all_items():
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    rows = conn.execute("SELECT name, price, stock FROM items ORDER BY name").fetchall()
+    conn.close()
+    return rows
 # ---------- BILL LOGS HELPER ----------
 def get_bill_logs(start_str=None, end_str=None):
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -509,7 +549,7 @@ def get_bill_logs(start_str=None, end_str=None):
         FROM bills b
         LEFT JOIN employees e ON e.cid = b.employee_cid
     """
-    params = ""
+    params = ()
     if start_str and end_str:
         base_sql += " WHERE b.timestamp >= ? AND b.timestamp <= ?"
         params = (start_str, end_str)
@@ -759,10 +799,11 @@ if st.session_state.role == "user":
         total, det = 0.0, ""
         if btype == "ITEMS":
             sel = {}
-            for item, price in ITEM_PRICES.items():
-                q = st.number_input(f"{item} (₹{price}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
+            items = get_all_items()
+            for name, price, stock in items:
+                q = st.number_input(f"{name} (₹{price}) – Qty (Stock: {stock})", min_value=0, max_value=stock, step=1, key=f"user_items_{name}")
                 if q:
-                    sel[item] = q
+                    sel[name] = q
                     total += price * q
             det = ", ".join(f"{i}×{q}" for i, q in sel.items())
         elif btype == "UPGRADES":
@@ -792,19 +833,28 @@ if st.session_state.role == "user":
             if not emp_cid or not cust_cid or total == 0:
                 st.warning("Fill all fields.")
             else:
-                save_bill(emp_cid, cust_cid, btype, det, total)
-                st.session_state.bill_saved = True
-                st.session_state.bill_total = total
-                # persist last saved bill to show below the button
-                st.session_state.last_bill = {
-                    "employee_cid": emp_cid,
-                    "customer_cid": cust_cid,
-                    "billing_type": btype,
-                    "details": det,
-                    "amount": total,
-                }
-                # Inline embedded preview card shown immediately below the Save button
-                st.markdown(
+                if btype == "ITEMS":
+                    conn = sqlite3.connect("auto_exotic_billing.db")
+                    enough_stock = True
+                    for item, q in sel.items():
+                        row = conn.execute("SELECT stock FROM items WHERE name=?", (item,)).fetchone()
+                        if row and row[0] < q:
+                            st.warning(f"Not enough stock for {item} (available: {row[0]}, requested: {q})")
+                            enough_stock = False
+                            break
+                    if enough_stock:
+                        save_bill(emp_cid, cust_cid, btype, det, total)
+                        for item, q in sel.items():
+                            conn.execute("UPDATE items SET stock = stock - ? WHERE name=?", (q, item))
+                        conn.commit()
+                        st.session_state.bill_saved = True
+                        st.session_state.bill_total = total
+                    conn.close()
+                else:
+                    save_bill(emp_cid, cust_cid, btype, det, total)
+                    st.session_state.bill_saved = True
+                    st.session_state.bill_total = total
+                    st.markdown(
                     f"""
                     <div style="
                       display:flex;
@@ -819,7 +869,7 @@ if st.session_state.role == "user":
                     ">
                       <div style="flex:1">
                         <div style="font-weight:700;font-size:16px;margin-bottom:4px">
-                          aved bill — ₹{total:.2f}
+                          Saved bill — ₹{total:.2f}
                         </div>
                         <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
                           Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
@@ -838,11 +888,12 @@ if st.session_state.role == "user":
         if st.session_state.get("last_bill"):
             lb = st.session_state["last_bill"]
             st.markdown(
-            f"**Last saved bill — ₹{lb['amount']:.2f}** \n"
-            f"Type: {lb['billing_type']} \n"
-            f"Details: {lb['details']} \n"
+            f"**Last saved bill — ₹{lb['amount']:.2f}**  \n"
+            f"Type: {lb['billing_type']}  \n"
+            f"Details: {lb['details']}  \n"
             f"Seller CID: `{lb['employee_cid']}` | Customer CID: `{lb['customer_cid']}`"
             )
+
     # MEMBERSHIP FORM (user only)
     st.markdown("---")
     st.subheader("🎟️ Manage Membership")
@@ -935,7 +986,7 @@ elif st.session_state.role == "admin":
         st.success("All billing records have been reset.")
     menu = st.sidebar.selectbox(
         "Main Menu",
-        ["Sales", "Live Stats", "Manage Hoods", "Manage Staff", "Tracking", "Bill Logs", "Hood War", "Loyalty", "Shifts", "Audit"],
+        ["Sales", "Live Stats", "Manage Hoods", "Manage Staff", "Tracking", "Bill Logs", "Hood War", "Loyalty", "Shifts", "Audit", "Manage Items"],
         index=0
     )
     # Sales Overview
@@ -1561,3 +1612,55 @@ elif st.session_state.role == "admin":
             st.dataframe(df, use_container_width=True)
         else:
             st.info("Audit log is empty.")
+    # Manage Items
+    elif menu == "Manage Items":
+        st.header("🛒 Manage Items")
+        tabs = st.tabs(["➕ Add Item", "✏️ Edit Item", "🗑️ Delete Item", "📋 View Items"])
+        with tabs[0]:
+            st.subheader("➕ Add New Item")
+            with st.form("add_item", clear_on_submit=True):
+                name = st.text_input("Item Name")
+                price = st.number_input("Price (₹)", min_value=0.0)
+                stock = st.number_input("Initial Stock", min_value=0, step=1)
+                if st.form_submit_button("Add Item"):
+                    if name and price >= 0:
+                        add_item(name, price, stock)
+                        st.success(f"Added item '{name}'")
+                    else:
+                        st.warning("Name and valid price required.")
+        with tabs[1]:
+            st.subheader("✏️ Edit Item")
+            items = get_all_items()
+            if items:
+                names = [i[0] for i in items]
+                sel = st.selectbox("Select Item", names, key="edit_item_sel")
+                current_price = next((i[1] for i in items if i[0] == sel), 0.0)
+                current_stock = next((i[2] for i in items if i[0] == sel), 0)
+                new_price = st.number_input("New Price (₹)", min_value=0.0, value=current_price)
+                new_stock = st.number_input("New Stock", min_value=0, step=1, value=current_stock)
+                if st.button("Update Item"):
+                    update_item(sel, new_price, new_stock)
+                    st.success(f"Updated '{sel}'")
+                    st.rerun()
+            else:
+                st.info("No items to edit.")
+        with tabs[2]:
+            st.subheader("🗑️ Delete Item")
+            items = get_all_items()
+            if items:
+                names = [i[0] for i in items]
+                sel = st.selectbox("Select Item to Delete", names, key="delete_item_sel")
+                if st.button("Delete Item"):
+                    delete_item(sel)
+                    st.success(f"Deleted '{sel}'")
+                    st.rerun()
+            else:
+                st.info("No items to delete.")
+        with tabs[3]:
+            st.subheader("📋 All Items")
+            items = get_all_items()
+            if items:
+                df = pd.DataFrame(items, columns=["Name", "Price (₹)", "Stock"])
+                st.dataframe(df)
+            else:
+                st.info("No items found.")
