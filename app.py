@@ -1023,8 +1023,10 @@ if st.session_state.role == "user":
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
-                    
-                items = get_all_items()   # fetch latest from DB
+
+                for i, (name, price, stock) in enumerate(st.session_state.items):
+                    if name in sel:
+                        st.session_state.items[i] = (name, price, stock - sel[name])
 
                 
 
