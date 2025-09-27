@@ -1102,7 +1102,7 @@ if st.session_state.role == "user":
                     "Bills": bills,
                     "Revenue": f"₹{revenue:.2f}"
                 })
-            st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(table_rows), width='content', use_container_width=True)
         else:
             st.info("No shifts recorded for this month.")
     else:
@@ -1604,7 +1604,7 @@ elif st.session_state.role == "admin":
             f"**Total Amount:** ₹{total_amt:,.2f} | **Total Commission:** ₹{total_comm:,.2f} | **Total Tax:** ₹{total_tax:,.2f}"
         )
 
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='content', use_container_width=True)
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(
             "⬇️ Download CSV",
@@ -1750,7 +1750,7 @@ elif st.session_state.role == "admin":
                     col3.metric("Bills", f"{total_bills:,}")
                     col4.metric("Revenue", f"₹{total_rev:,.2f}")
 
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df,width='content', use_container_width=True)
 
         # ---------- LIVE SHIFTS ----------
         with tab_live:
@@ -1806,7 +1806,7 @@ elif st.session_state.role == "admin":
         conn.close()
         if rows:
             df = pd.DataFrame(rows, columns=["Action", "Table", "Row ID", "Actor", "Time", "Old", "New"])
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df,width='content', use_container_width=True)
         else:
             st.info("Audit log is empty.")
         
