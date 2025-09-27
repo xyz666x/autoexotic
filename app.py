@@ -735,9 +735,9 @@ def end_shift(employee_cid):
 
 # ---------- AUTHENTICATION ----------
 def login(u, p):
-    if u == "AutoExotic" and p == "AutoExotic123":
+    if u == "owner" and p == "owner666":
         st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "admin", u
-    elif u == "User" and p == "User123":
+    elif u == "emp" and p == "emp456":
         st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
     else:
         st.error("Invalid credentials")
