@@ -6,6 +6,19 @@ from zoneinfo import ZoneInfo
 import json
 import time
 
+hide_streamlit_style = """
+    <style>
+    /* Hide hamburger menu */
+    #MainMenu {visibility: hidden;}
+    /* Hide footer */
+    footer {visibility: hidden;}
+    /* Hide header toolbar */
+    header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+
 # ---------- CONFIG & SESSION STATE -----------
 IST = ZoneInfo("Asia/Kolkata")
 st.set_page_config(page_title="ExoticBill", page_icon="🧾")
@@ -56,6 +69,7 @@ TAX_RATE = 0.05  # 5% on the commission
 # ---------- LOYALTY ----------
 # Earn 1 point per ₹100 spent on non-membership bills (configurable)
 LOYALTY_EARN_PER_RS = 100  # 1 point per 100 INR
+
 
 
 # ========== DATABASE INIT & MIGRATION ==========
