@@ -854,6 +854,37 @@ if st.session_state.role == "user":
                     save_bill(emp_cid, cust_cid, btype, det, total)
                     st.session_state.bill_saved = True
                     st.session_state.bill_total = total
+                    st.markdown(
+                    f"""
+                    <div style="
+                      display:flex;
+                      align-items:center;
+                      border-left:3px solid #28a745;
+                      padding:10px;
+                      border-radius:8px;
+                      background:rgba(255,255,255,0.0);
+                      backdrop-filter: blur(6px);
+                      -webkit-backdrop-filter: blur(6px);
+                      margin-top:8px;
+                    ">
+                      <div style="flex:1">
+                        <div style="font-weight:700;font-size:16px;margin-bottom:4px">
+                          Saved bill — ₹{total:.2f}
+                        </div>
+                        <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
+                          Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
+                        </div>
+                        <div style="color:#666;font-size:12px">
+                          Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{emp_cid}</code>
+                          &nbsp;•&nbsp;
+                          Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{cust_cid}</code>
+                        </div>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
     # MEMBERSHIP FORM (user only)
     st.markdown("---")
     st.subheader("🎟️ Manage Membership")
