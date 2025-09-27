@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import json
 import time
-
 hide_ui_css = """
 <style>
     .stAppToolbar {visibility: hidden !important;}
@@ -13,8 +12,6 @@ hide_ui_css = """
 </style>
 """
 st.markdown(hide_ui_css, unsafe_allow_html=True)
-
-
 # ---------- CONFIG & SESSION STATE -----------
 IST = ZoneInfo("Asia/Kolkata")
 st.set_page_config(page_title="ExoticBill", page_icon="🧾")
@@ -27,17 +24,7 @@ for key, default in [
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
-
 # ---------- PRICING & DISCOUNTS -----------
-ITEM_PRICES = {
-    "Repair Kit": 400,
-    "Car Wax": 2000,
-    "NOS": 1500,
-    "Adv Lockpick": 400,
-    "Lockpick": 250,
-    "Wash Kit": 300,
-    "Harness": 12000,
-}
 PART_COST = 125
 LABOR = 450
 MEMBERSHIP_DISCOUNTS = {
@@ -46,10 +33,8 @@ MEMBERSHIP_DISCOUNTS = {
     "Tier3": {"REPAIR": 0.50, "CUSTOMIZATION": 0.30},
     "Racer": {"REPAIR": 0.00, "CUSTOMIZATION": 0.00},
 }
-
 # ---------- MEMBERSHIP PRICES -----------
 MEMBERSHIP_PRICES = {"Tier1": 2000, "Tier2": 4000, "Tier3": 6000}
-
 # ---------- COMMISSION & TAX -----------
 COMMISSION_RATES = {
     "Trainee": 0.10,
@@ -60,22 +45,17 @@ COMMISSION_RATES = {
     "Manager": 0.25,
     "CEO": 0.69,
 }
-TAX_RATE = 0.05  # 5% on the commission
-
+TAX_RATE = 0.05 # 5% on the commission
 # ---------- LOYALTY ----------
 # Earn 1 point per ₹100 spent on non-membership bills (configurable)
-LOYALTY_EARN_PER_RS = 100  # 1 point per 100 INR
-
-
+LOYALTY_EARN_PER_RS = 100 # 1 point per 100 INR
 # ========== DATABASE INIT & MIGRATION ==========
 def init_db():
     conn = sqlite3.connect("auto_exotic_billing.db")
     c = conn.cursor()
-
     def has_column(table, col):
         info = c.execute(f"PRAGMA table_info({table})").fetchall()
         return any(row[1] == col for row in info)
-
     # bills (base)
     c.execute("""
       CREATE TABLE IF NOT EXISTS bills (
@@ -93,7 +73,6 @@ def init_db():
         c.execute("ALTER TABLE bills ADD COLUMN commission REAL DEFAULT 0")
     if not has_column("bills", "tax"):
         c.execute("ALTER TABLE bills ADD COLUMN tax REAL DEFAULT 0")
-
     # employees (base)
     c.execute("""
       CREATE TABLE IF NOT EXISTS employees (
@@ -106,7 +85,6 @@ def init_db():
         c.execute("ALTER TABLE employees ADD COLUMN rank TEXT DEFAULT 'Trainee'")
     if not has_column("employees", "hood"):
         c.execute("ALTER TABLE employees ADD COLUMN hood TEXT DEFAULT 'No Hood'")
-
     # memberships (active)
     c.execute("""
       CREATE TABLE IF NOT EXISTS memberships (
@@ -115,7 +93,6 @@ def init_db():
         dop TEXT
       )
     """)
-
     # membership history (archived/expired)
     c.execute("""
       CREATE TABLE IF NOT EXISTS membership_history (
@@ -125,7 +102,6 @@ def init_db():
         expired_at TEXT
       )
     """)
-
     # hoods
     c.execute("""
       CREATE TABLE IF NOT EXISTS hoods (
@@ -133,7 +109,14 @@ def init_db():
         location TEXT
       )
     """)
-
+    # items
+    c.execute("""
+      CREATE TABLE IF NOT EXISTS items (
+        name TEXT PRIMARY KEY,
+        price REAL,
+        stock INTEGER
+      )
+    """)
     # soft-deletes for bills
     c.execute("""
       CREATE TABLE IF NOT EXISTS bills_deleted (
@@ -150,7 +133,6 @@ def init_db():
         deleted_at TEXT
       )
     """)
-
     # audit log
     c.execute("""
       CREATE TABLE IF NOT EXISTS audit_log (
@@ -164,7 +146,6 @@ def init_db():
         new_values TEXT
       )
     """)
-
     # shifts
     c.execute("""
       CREATE TABLE IF NOT EXISTS shifts (
@@ -177,7 +158,6 @@ def init_db():
         revenue REAL
       )
     """)
-
     # loyalty
     c.execute("""
       CREATE TABLE IF NOT EXISTS loyalty (
@@ -185,7 +165,6 @@ def init_db():
         points INTEGER DEFAULT 0
       )
     """)
-
     # indexes (use try/except for broad SQLite compatibility)
     for stmt in [
         "CREATE INDEX idx_bills_ts ON bills(timestamp)",
@@ -201,14 +180,24 @@ def init_db():
             c.execute(stmt)
         except sqlite3.OperationalError:
             pass
-
+    conn.commit()
+    # Populate initial items if table is empty
+    initial_items = {
+        "Repair Kit": (400, 0),
+        "Car Wax": (2000, 0),
+        "NOS": (1500, 0),
+        "Adv Lockpick": (400, 0),
+        "Lockpick": (250, 0),
+        "Wash Kit": (300, 0),
+        "Harness": (12000, 0),
+    }
+    item_count = c.execute("SELECT COUNT(*) FROM items").fetchone()[0]
+    if item_count == 0:
+        for name, (price, stock) in initial_items.items():
+            c.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
     conn.commit()
     conn.close()
-
-
 init_db()
-
-
 # ---------- SHIFTS SCHEMA ENSURER (same-connection, index-safe) ----------
 def _ensure_shifts_schema(conn):
     conn.executescript("""
@@ -226,13 +215,9 @@ def _ensure_shifts_schema(conn):
         conn.execute("CREATE INDEX idx_shifts_emp_active ON shifts(employee_cid, end_ts)")
     except sqlite3.OperationalError:
         pass
-
-
 # Ensure shifts exist at boot as well (handles old DBs before any UI action)
 with sqlite3.connect("auto_exotic_billing.db") as _boot_conn:
     _ensure_shifts_schema(_boot_conn)
-
-
 # ---------- EXPIRE MEMBERSHIPS ----------
 def purge_expired_memberships():
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -256,19 +241,13 @@ def purge_expired_memberships():
     c.execute("DELETE FROM memberships WHERE dop <= ?", (cutoff_str,))
     conn.commit()
     conn.close()
-
-
 purge_expired_memberships()
-
-
 # ---------- HELPERS ----------
 def get_employee_rank(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
     row = conn.execute("SELECT rank FROM employees WHERE cid = ?", (cid,)).fetchone()
     conn.close()
     return row[0] if row else "Trainee"
-
-
 def audit(action, table_name, row_id, actor, old_values=None, new_values=None):
     conn = sqlite3.connect("auto_exotic_billing.db")
     conn.execute("""
@@ -282,8 +261,6 @@ def audit(action, table_name, row_id, actor, old_values=None, new_values=None):
     ))
     conn.commit()
     conn.close()
-
-
 def add_loyalty_points(customer_cid, points):
     if points <= 0:
         return
@@ -296,11 +273,8 @@ def add_loyalty_points(customer_cid, points):
         cur.execute("INSERT INTO loyalty (customer_cid, points) VALUES (?, ?)", (customer_cid, points))
     conn.commit()
     conn.close()
-
-
 def save_bill(emp, cust, btype, det, amt):
     now_ist = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
-
     # Commission rules:
     # - No commission/tax on UPGRADES and MEMBERSHIP
     # - No commission/tax on ITEMS if ONLY Harness and/or NOS are present
@@ -317,7 +291,6 @@ def save_bill(emp, cust, btype, det, amt):
                 item_names = []
         if item_names and all(name in no_commission_items for name in item_names):
             no_commission = True
-
     if no_commission:
         commission = 0.0
         tax = 0.0
@@ -325,7 +298,6 @@ def save_bill(emp, cust, btype, det, amt):
         comm_rate = COMMISSION_RATES.get(get_employee_rank(emp), 0)
         commission = amt * comm_rate
         tax = commission * TAX_RATE
-
     conn = sqlite3.connect("auto_exotic_billing.db")
     conn.execute("""
         INSERT INTO bills
@@ -334,13 +306,10 @@ def save_bill(emp, cust, btype, det, amt):
     """, (emp, cust, btype, det, amt, now_ist, commission, tax))
     conn.commit()
     conn.close()
-
     # Loyalty on non-membership bills
     if btype != "MEMBERSHIP" and cust:
         points = int(amt // LOYALTY_EARN_PER_RS)
         add_loyalty_points(cust, points)
-
-
 def add_employee(cid, name, rank="Trainee"):
     conn = sqlite3.connect("auto_exotic_billing.db")
     try:
@@ -349,15 +318,11 @@ def add_employee(cid, name, rank="Trainee"):
     except sqlite3.IntegrityError:
         st.warning("Employee CID already exists.")
     conn.close()
-
-
 def delete_employee(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
     conn.execute("DELETE FROM employees WHERE cid = ?", (cid,))
     conn.commit()
     conn.close()
-
-
 def update_employee(cid, name=None, rank=None, hood=None):
     before = get_employee_details(cid)
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -371,8 +336,6 @@ def update_employee(cid, name=None, rank=None, hood=None):
     conn.close()
     after = get_employee_details(cid)
     audit("UPDATE_EMP", "employees", cid, st.session_state.get("username", "?"), before, after)
-
-
 def get_employee_details(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
     row = conn.execute("SELECT name, rank, hood FROM employees WHERE cid = ?", (cid,)).fetchone()
@@ -380,15 +343,11 @@ def get_employee_details(cid):
     if row:
         return {"name": row[0], "rank": row[1], "hood": row[2]}
     return None
-
-
 def get_all_employee_cids():
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("SELECT cid, name FROM employees").fetchall()
     conn.close()
     return rows
-
-
 def add_membership(cust, tier):
     dop_ist = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -398,8 +357,6 @@ def add_membership(cust, tier):
     )
     conn.commit()
     conn.close()
-
-
 def get_membership(cust):
     conn = sqlite3.connect("auto_exotic_billing.db")
     row = conn.execute(
@@ -407,15 +364,11 @@ def get_membership(cust):
     ).fetchone()
     conn.close()
     return {"tier": row[0], "dop": row[1]} if row else None
-
-
 def get_all_memberships():
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("SELECT customer_cid, tier, dop FROM memberships").fetchall()
     conn.close()
     return rows
-
-
 def get_past_memberships():
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("""
@@ -425,8 +378,6 @@ def get_past_memberships():
     """).fetchall()
     conn.close()
     return rows
-
-
 def get_billing_summary_by_cid(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
     summary = {}
@@ -439,8 +390,6 @@ def get_billing_summary_by_cid(cid):
     total = conn.execute("SELECT SUM(total_amount) FROM bills WHERE employee_cid=?", (cid,)).fetchone()[0] or 0.0
     conn.close()
     return summary, total
-
-
 def get_employee_bills(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("""
@@ -451,8 +400,6 @@ def get_employee_bills(cid):
     """, (cid,)).fetchall()
     conn.close()
     return rows
-
-
 def get_bill_by_id(bill_id):
     conn = sqlite3.connect("auto_exotic_billing.db")
     row = conn.execute("""
@@ -462,8 +409,6 @@ def get_bill_by_id(bill_id):
     """, (bill_id,)).fetchone()
     conn.close()
     return row
-
-
 def soft_delete_bill(bill_id, actor):
     row = get_bill_by_id(bill_id)
     if not row:
@@ -488,15 +433,11 @@ def soft_delete_bill(bill_id, actor):
         "commission": comm, "tax": tax
     }, new_values=None)
     return True
-
-
 def get_all_customers():
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("SELECT DISTINCT customer_cid FROM bills").fetchall()
     conn.close()
     return [r[0] for r in rows]
-
-
 def get_customer_bills(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
     try:
@@ -510,29 +451,21 @@ def get_customer_bills(cid):
         return rows
     finally:
         conn.close()
-
-
 def get_total_billing():
     conn = sqlite3.connect("auto_exotic_billing.db")
     total = conn.execute("SELECT SUM(total_amount) FROM bills").fetchone()[0] or 0.0
     conn.close()
     return total
-
-
 def get_bill_count():
     conn = sqlite3.connect("auto_exotic_billing.db")
     cnt = conn.execute("SELECT COUNT(*) FROM bills").fetchone()[0] or 0
     conn.close()
     return cnt
-
-
 def get_total_commission_and_tax():
     conn = sqlite3.connect("auto_exotic_billing.db")
     row = conn.execute("SELECT SUM(commission), SUM(tax) FROM bills").fetchone()
     conn.close()
     return (row[0] or 0.0, row[1] or 0.0)
-
-
 # ---------- HOODS HELPERS ----------
 def add_hood(name, location):
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -542,8 +475,6 @@ def add_hood(name, location):
     except sqlite3.IntegrityError:
         st.warning("That hood already exists.")
     conn.close()
-
-
 def update_hood(old_name, new_name, new_location):
     conn = sqlite3.connect("auto_exotic_billing.db")
     c = conn.cursor()
@@ -551,8 +482,6 @@ def update_hood(old_name, new_name, new_location):
     c.execute("UPDATE employees SET hood=? WHERE hood=?", (new_name, old_name))
     conn.commit()
     conn.close()
-
-
 def delete_hood(name):
     conn = sqlite3.connect("auto_exotic_billing.db")
     c = conn.cursor()
@@ -560,30 +489,51 @@ def delete_hood(name):
     c.execute("UPDATE employees SET hood='No Hood' WHERE hood=?", (name,))
     conn.commit()
     conn.close()
-
-
 def get_all_hoods():
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("SELECT name, location FROM hoods").fetchall()
     conn.close()
     return rows
-
-
 def assign_employees_to_hood(hood, cids):
     conn = sqlite3.connect("auto_exotic_billing.db")
     for cid in cids:
         conn.execute("UPDATE employees SET hood=? WHERE cid=?", (hood, cid))
     conn.commit()
     conn.close()
-
-
 def get_employees_by_hood(hood):
     conn = sqlite3.connect("auto_exotic_billing.db")
     rows = conn.execute("SELECT cid, name FROM employees WHERE hood=?", (hood,)).fetchall()
     conn.close()
     return rows
-
-
+# ---------- ITEMS HELPERS ----------
+def add_item(name, price, stock):
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    try:
+        conn.execute("INSERT INTO items (name, price, stock) VALUES (?, ?, ?)", (name, price, stock))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        st.warning("Item name already exists.")
+    conn.close()
+def update_item(name, price=None, stock=None):
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    if price is not None and stock is not None:
+        conn.execute("UPDATE items SET price = ?, stock = ? WHERE name = ?", (price, stock, name))
+    elif price is not None:
+        conn.execute("UPDATE items SET price = ? WHERE name = ?", (price, name))
+    elif stock is not None:
+        conn.execute("UPDATE items SET stock = ? WHERE name = ?", (stock, name))
+    conn.commit()
+    conn.close()
+def delete_item(name):
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    conn.execute("DELETE FROM items WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()
+def get_all_items():
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    rows = conn.execute("SELECT name, price, stock FROM items ORDER BY name").fetchall()
+    conn.close()
+    return rows
 # ---------- BILL LOGS HELPER ----------
 def get_bill_logs(start_str=None, end_str=None):
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -607,8 +557,6 @@ def get_bill_logs(start_str=None, end_str=None):
     rows = c.execute(base_sql, params).fetchall()
     conn.close()
     return rows
-
-
 # ---------- SHIFT HELPERS ----------
 def _ensure_shifts_schema(conn):
     """
@@ -619,7 +567,6 @@ def _ensure_shifts_schema(conn):
     # Does the table exist?
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='shifts'")
     exists = cur.fetchone() is not None
-
     if not exists:
         # Fresh create with full schema
         cur.executescript("""
@@ -648,20 +595,16 @@ def _ensure_shifts_schema(conn):
             cur.execute("ALTER TABLE shifts ADD COLUMN bills_count INTEGER")
         if "revenue" not in cols:
             cur.execute("ALTER TABLE shifts ADD COLUMN revenue REAL")
-
     # Create the index if missing (works on old SQLite too)
     try:
         cur.execute("CREATE INDEX idx_shifts_emp_active ON shifts(employee_cid, end_ts)")
     except sqlite3.OperationalError:
         # Index already exists (or older SQLite message) – ignore
         pass
-
     conn.commit()
-
 def start_shift(employee_cid):
     if not (employee_cid and str(employee_cid).strip()):
         return False, "Please enter your CID first."
-
     conn = sqlite3.connect("auto_exotic_billing.db")
     try:
         _ensure_shifts_schema(conn)
@@ -676,10 +619,8 @@ def start_shift(employee_cid):
                 "SELECT id FROM shifts WHERE employee_cid=? AND end_ts IS NULL",
                 (employee_cid,)
             ).fetchone()
-
         if active:
             return False, "Shift already active."
-
         conn.execute(
             "INSERT INTO shifts (employee_cid, start_ts) VALUES (?,?)",
             (employee_cid, datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S"))
@@ -687,16 +628,12 @@ def start_shift(employee_cid):
         conn.commit()
     finally:
         conn.close()
-
     audit("SHIFT_START", "shifts", "-", st.session_state.get("username", "?"),
           new_values={"employee_cid": employee_cid})
     return True, "Shift started."
-
-
 def end_shift(employee_cid):
     if not (employee_cid and str(employee_cid).strip()):
         return False, "Please enter your CID first."
-
     conn = sqlite3.connect("auto_exotic_billing.db")
     try:
         _ensure_shifts_schema(conn)
@@ -711,23 +648,18 @@ def end_shift(employee_cid):
                 "SELECT id, start_ts FROM shifts WHERE employee_cid=? AND end_ts IS NULL",
                 (employee_cid,)
             ).fetchone()
-
         if not row:
             return False, "No active shift."
-
         sid, start_ts = row
         now = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
-
         bills = conn.execute("""
             SELECT COUNT(*), COALESCE(SUM(total_amount),0)
             FROM bills WHERE employee_cid=? AND timestamp>=? AND timestamp<=?
         """, (employee_cid, start_ts, now)).fetchone()
         bcount, revenue = (bills[0] or 0, bills[1] or 0.0)
-
         dt_start = datetime.strptime(start_ts, "%Y-%m-%d %H:%M:%S")
         dt_end = datetime.strptime(now, "%Y-%m-%d %H:%M:%S")
         duration = int((dt_end - dt_start).total_seconds() // 60)
-
         conn.execute("""
             UPDATE shifts SET end_ts=?, duration_minutes=?, bills_count=?, revenue=?
             WHERE id=?
@@ -735,16 +667,12 @@ def end_shift(employee_cid):
         conn.commit()
     finally:
         conn.close()
-
     audit("SHIFT_END", "shifts", sid, st.session_state.get("username", "?"),
           old_values={"start_ts": start_ts},
           new_values={"end_ts": now, "bills": bcount, "revenue": revenue})
     return True, "Shift ended."
-
-
 import sqlite3
 import streamlit as st
-
 # ---------- AUTHENTICATION ----------
 def login(u, p):
     # Admin/backdoor
@@ -755,15 +683,12 @@ def login(u, p):
         st.session_state.display_name = "Owner"
         st.success("Logged in as admin")
         return
-
     uname_input = (u or "").strip().lower()
     pwd_input = (p or "").strip().lower()
-
     # Connect to DB
     conn = sqlite3.connect("auto_exotic_billing.db")
     row = conn.execute("SELECT cid, name, rank FROM employees").fetchall()
     conn.close()
-
     # Find employee by first name (case-insensitive)
     emp = None
     for r in row:
@@ -773,32 +698,25 @@ def login(u, p):
         if first_name == uname_input:
             emp = r
             break
-
     if not emp:
         st.error("Invalid credentials")
         return
-
     cid = emp[0]
     fullname = emp[1]
-
     # Helper to get first up-to-n alphanumeric characters
     def first_n_alnum(s: str, n: int = 4) -> str:
         s_clean = "".join(ch for ch in (s or "") if ch.isalnum())
         return s_clean[:n].lower() if s_clean else ""
-
     # Password rule
     expected = first_n_alnum(fullname.split()[0], 4) + first_n_alnum(cid, 4)
-
     if pwd_input == expected:
         st.session_state.logged_in = True
         st.session_state.role = "user"
-        st.session_state.username = fullname.split()[0]  # first name as username
+        st.session_state.username = fullname.split()[0] # first name as username
         st.session_state.display_name = fullname
         st.success(f"Logged in as user {fullname}")
     else:
         st.error("Invalid credentials")
-
-
 # ---------- LOGIN FORM ----------
 if not st.session_state.logged_in:
     st.title("🧾 ExoticBill Login")
@@ -808,22 +726,18 @@ if not st.session_state.logged_in:
         if st.form_submit_button("Login"):
             login(uname, pwd)
     st.stop()
-
 # ---------- SIDEBAR ----------
 with st.sidebar:
     st.success(f"Logged in as: {st.session_state.username}")
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
-
-
 # ---------- USER PANEL ----------
 if st.session_state.role == "user":
     st.title("🧾 ExoticBill - Add New Bill")
     if st.session_state.bill_saved:
         st.success(f"Bill saved! Total: ₹{st.session_state.bill_total:.2f}")
         st.session_state.bill_saved = False
-
     # Try to resolve logged-in employee CID (prefill and lock)
     def _resolve_logged_in_cid():
         # Prefer an explicit session value if present
@@ -848,9 +762,7 @@ if st.session_state.role == "user":
         finally:
             conn.close()
         return ""
-
     emp_cid_locked = _resolve_logged_in_cid()
-
     # Shift controls (CID prefilled & locked if resolved)
     st.markdown("### ⏱️ Shift Controls")
     with st.container():
@@ -874,35 +786,30 @@ if st.session_state.role == "user":
                     (st.success if ok else st.warning)(msg)
                 else:
                     st.warning("Enter your CID to end shift.")
-
     st.markdown("---")
     btype = st.selectbox("Select Billing Type", ["ITEMS", "UPGRADES", "REPAIR", "CUSTOMIZATION"])
     rtype = st.radio("Repair Type", ["Normal Repair", "Advanced Repair"]) if btype == "REPAIR" else None
-
     with st.form("bill_form", clear_on_submit=True):
         # Employee CID: prefills and is locked when available
         if emp_cid_locked:
             emp_cid = st.text_input("Your CID (Employee)", value=emp_cid_locked, disabled=True, key="user_emp_cid_locked")
         else:
             emp_cid = st.text_input("Your CID (Employee)")
-
         cust_cid = st.text_input("Customer CID")
         total, det = 0.0, ""
-
         if btype == "ITEMS":
             sel = {}
-            for item, price in ITEM_PRICES.items():
-                q = st.number_input(f"{item} (₹{price}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
+            items = get_all_items()
+            for name, price, stock in items:
+                q = st.number_input(f"{name} (₹{price}) – Qty (Stock: {stock})", min_value=0, max_value=stock, step=1, key=f"user_items_{name}")
                 if q:
-                    sel[item] = q
+                    sel[name] = q
                     total += price * q
             det = ", ".join(f"{i}×{q}" for i, q in sel.items())
-
         elif btype == "UPGRADES":
             amt = st.number_input("Base upgrade amount (₹)", min_value=0.0, key="user_upg_amt")
             total = amt * 1.5
             det = f"Upgrade: ₹{amt}"
-
         elif btype == "REPAIR":
             if rtype == "Normal Repair":
                 b = st.number_input("Base repair charge (₹)", min_value=0.0, key="user_rep_base")
@@ -916,22 +823,37 @@ if st.session_state.role == "user":
             c_amt = st.number_input("Base customization amount (₹)", min_value=0.0, key="user_cust_amt")
             total = c_amt * 2
             det = f"Customization: ₹{c_amt}×2"
-
         mem = get_membership(cust_cid)
         if mem:
             disc = MEMBERSHIP_DISCOUNTS.get(mem["tier"], {}).get(btype, 0)
             if disc > 0:
                 total *= (1 - disc)
                 det += f" | {mem['tier']} discount {int(disc * 100)}%"
-
         if st.form_submit_button("💾 Save Bill"):
             if not emp_cid or not cust_cid or total == 0:
                 st.warning("Fill all fields.")
             else:
-                save_bill(emp_cid, cust_cid, btype, det, total)
-                st.session_state.bill_saved = True
-                st.session_state.bill_total = total
-
+                if btype == "ITEMS":
+                    conn = sqlite3.connect("auto_exotic_billing.db")
+                    enough_stock = True
+                    for item, q in sel.items():
+                        row = conn.execute("SELECT stock FROM items WHERE name=?", (item,)).fetchone()
+                        if row and row[0] < q:
+                            st.warning(f"Not enough stock for {item} (available: {row[0]}, requested: {q})")
+                            enough_stock = False
+                            break
+                    if enough_stock:
+                        save_bill(emp_cid, cust_cid, btype, det, total)
+                        for item, q in sel.items():
+                            conn.execute("UPDATE items SET stock = stock - ? WHERE name=?", (q, item))
+                        conn.commit()
+                        st.session_state.bill_saved = True
+                        st.session_state.bill_total = total
+                    conn.close()
+                else:
+                    save_bill(emp_cid, cust_cid, btype, det, total)
+                    st.session_state.bill_saved = True
+                    st.session_state.bill_total = total
     # MEMBERSHIP FORM (user only)
     st.markdown("---")
     st.subheader("🎟️ Manage Membership")
@@ -944,7 +866,6 @@ if st.session_state.role == "user":
             seller_cid = emp_cid_locked
         else:
             seller_cid = st.text_input("Your CID (Seller)", key="mem_seller")
-
         submitted = st.form_submit_button("Add/Update Membership")
         if submitted:
             if m_cust and seller_cid and m_tier:
@@ -959,7 +880,6 @@ if st.session_state.role == "user":
                     st.warning("Unknown tier.")
             else:
                 st.warning("Fill all fields correctly.")
-
     # MEMBERSHIP CHECKER
     st.subheader("🔍 Check Membership")
     lookup = st.text_input("Customer CID to check", key="mem_lookup")
@@ -972,7 +892,6 @@ if st.session_state.role == "user":
             st.info(f"{lookup}: {mem['tier']}, expires in {rem.days}d {rem.seconds // 3600}h on {expiry.strftime('%Y-%m-%d %H:%M:%S')} IST")
         else:
             st.info(f"No active membership for {lookup}")
-
     # MONTHLY SHIFT LOGS & TOTAL WORKING HOURS
     st.markdown("---")
     st.subheader("🗓️ This Month — Shift Summary")
@@ -990,14 +909,12 @@ if st.session_state.role == "user":
             """, (emp_cid_locked, month_start.strftime("%Y-%m-%d %H:%M:%S"))).fetchall()
         finally:
             conn.close()
-
         total_minutes = sum((r[4] or 0) for r in rows)
         total_hours = total_minutes / 60.0
         # display name if available
         display_name = st.session_state.get("display_name") or ""
         st.metric("Employee", f"{display_name} ({emp_cid_locked})")
         st.metric("Total Working Hours (this month)", f"{total_hours:.2f} hrs")
-
         if rows:
             table_rows = []
             for sid, cid, start_ts, end_ts, mins, bills, revenue in rows:
@@ -1014,7 +931,6 @@ if st.session_state.role == "user":
             st.info("No shifts recorded for this month.")
     else:
         st.info("Could not determine your CID automatically. Start a shift or contact admin to link your account.")
-
 # ---------- ADMIN PANEL & MAIN MENU ----------
 elif st.session_state.role == "admin":
     st.title("👑 ExoticBill Admin")
@@ -1028,13 +944,11 @@ elif st.session_state.role == "admin":
         conn.commit()
         conn.close()
         st.success("All billing records have been reset.")
-
     menu = st.sidebar.selectbox(
         "Main Menu",
-        ["Sales", "Live Stats", "Manage Hoods", "Manage Staff", "Tracking", "Bill Logs", "Hood War", "Loyalty", "Shifts", "Audit"],
+        ["Sales", "Live Stats", "Manage Hoods", "Manage Staff", "Tracking", "Bill Logs", "Hood War", "Loyalty", "Shifts", "Audit", "Manage Items"],
         index=0
     )
-
     # Sales Overview
     if menu == "Sales":
         st.header("💹 Sales Overview")
@@ -1048,7 +962,6 @@ elif st.session_state.role == "admin":
         st.metric("Total Commission Paid", f"₹{sum_comm:,.2f}")
         st.metric("Total Tax on Commission", f"₹{sum_tax:,.2f}")
         st.metric("Estimated Profit", f"₹{profit:,.2f}")
-
     # Live Stats
     elif menu == "Live Stats":
         st.header("📈 Live Stats")
@@ -1056,7 +969,6 @@ elif st.session_state.role == "admin":
         now = datetime.now(IST)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         last_hour = now - timedelta(hours=1)
-
         conn = sqlite3.connect("auto_exotic_billing.db")
         cur = conn.cursor()
         today_count = cur.execute("SELECT COUNT(*) FROM bills WHERE timestamp>=?",
@@ -1074,7 +986,6 @@ elif st.session_state.role == "admin":
         """, (today_start.strftime("%Y-%m-%d %H:%M:%S"),)).fetchall()
         active_shifts = cur.execute("SELECT employee_cid, start_ts FROM shifts WHERE end_ts IS NULL").fetchall()
         conn.close()
-
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Bills Today", f"{today_count:,}")
@@ -1082,32 +993,27 @@ elif st.session_state.role == "admin":
             st.metric("Revenue Today", f"₹{today_amount:,.2f}")
         with col3:
             st.metric("Active Shifts", f"{len(active_shifts)}")
-
         col4, col5 = st.columns(2)
         with col4:
             st.metric("Bills (Last Hour)", f"{hr_count:,}")
         with col5:
             st.metric("Revenue (Last Hour)", f"₹{hr_amount:,.2f}")
-
         st.subheader("Top Billing Types Today")
         if top_types:
             df_top = pd.DataFrame(top_types, columns=["Type", "Count", "Amount"]).sort_values("Amount", ascending=False)
             st.table(df_top)
         else:
             st.info("No bills yet today.")
-
         if active_shifts:
             st.subheader("Active Shifts")
             st.table(pd.DataFrame(active_shifts, columns=["Employee CID", "Start Time"]))
         if auto:
             time.sleep(60)
             st.rerun()
-
     # Manage Hoods
     elif menu == "Manage Hoods":
         st.header("🏙️ Manage Hoods")
         tabs = st.tabs(["Add Hood", "Edit Hood", "Assign Staff", "View Hoods"])
-
         with tabs[0]:
             st.subheader("➕ Add New Hood")
             with st.form("add_hood", clear_on_submit=True):
@@ -1116,7 +1022,6 @@ elif st.session_state.role == "admin":
                 if st.form_submit_button("Add Hood") and hname and hloc:
                     add_hood(hname, hloc)
                     st.success(f"Added hood '{hname}'")
-
         with tabs[1]:
             st.subheader("✏️ Edit / Delete Hood")
             hds = get_all_hoods()
@@ -1134,7 +1039,6 @@ elif st.session_state.role == "admin":
                     st.success("Hood deleted.")
             else:
                 st.info("No hoods defined yet.")
-
         with tabs[2]:
             st.subheader("👷 Assign Employees to Hood")
             hds = get_all_hoods()
@@ -1149,7 +1053,6 @@ elif st.session_state.role == "admin":
                     st.success("Employees reassigned.")
             else:
                 st.info("Define some hoods first.")
-
         with tabs[3]:
             st.subheader("🔍 View Hoods & Members")
             hds = get_all_hoods()
@@ -1163,12 +1066,10 @@ elif st.session_state.role == "admin":
                             st.write("No employees assigned.")
             else:
                 st.info("No hoods to view.")
-
     # Manage Staff
     elif menu == "Manage Staff":
         st.header("👷 Manage Staff")
         tabs = st.tabs(["➕ Add Employee", "🗑️ Remove Employee", "✏️ Edit Employee", "📋 View All Employees"])
-
         with tabs[0]:
             st.subheader("➕ Add New Employee")
             with st.form("add_emp", clear_on_submit=True):
@@ -1185,7 +1086,6 @@ elif st.session_state.role == "admin":
                         st.success(f"Added {new_name} ({new_cid})")
                     else:
                         st.warning("CID and Name required.")
-
         with tabs[1]:
             st.subheader("🗑️ Remove Employee")
             all_emp = get_all_employee_cids()
@@ -1197,7 +1097,6 @@ elif st.session_state.role == "admin":
                     st.success(f"Removed {sel}")
             else:
                 st.info("No employees to remove.")
-
         with tabs[2]:
             st.subheader("✏️ Edit Employee")
             all_emp = get_all_employee_cids()
@@ -1228,7 +1127,6 @@ elif st.session_state.role == "admin":
                         except ValueError:
                             hood_options = [current_hood] + hood_options
                             hood_index = 0
-
                         with st.form("edit_emp", clear_on_submit=True):
                             name = st.text_input("Name", value=current_name)
                             rank = st.selectbox("Rank", rank_options, index=rank_index)
@@ -1238,7 +1136,6 @@ elif st.session_state.role == "admin":
                                 update_employee(emp_cid, name=name, rank=rank, hood=hood)
                                 st.success(f"Updated {sel_emp}")
                                 st.rerun()
-
         with tabs[3]:
             st.subheader("📋 All Employees List")
             all_rows = []
@@ -1256,7 +1153,6 @@ elif st.session_state.role == "admin":
                 st.dataframe(df)
             else:
                 st.info("No employees found.")
-
     # Tracking
     elif menu == "Tracking":
         st.header("📊 Tracking")
@@ -1264,7 +1160,6 @@ elif st.session_state.role == "admin":
             "Employee", "Customer", "Hood", "Membership",
             "Employee Rankings", "Custom Filter"
         ])
-
         # Employee tab
         with tabs[0]:
             st.subheader("Employee Billing")
@@ -1294,9 +1189,9 @@ elif st.session_state.role == "admin":
                             col1, col2 = st.columns([9, 1])
                             with col1:
                                 st.markdown(
-                                    f"**ID:** `{bill_id}` | **Customer:** `{cust}` | **Type:** `{btype}`  \n"
-                                    f"**Details:** {details}  \n"
-                                    f"**Amount:** ₹{amt:.2f} | **Commission:** ₹{comm:.2f} | **Tax:** ₹{tax:.2f}  \n"
+                                    f"**ID:** `{bill_id}` | **Customer:** `{cust}` | **Type:** `{btype}` \n"
+                                    f"**Details:** {details} \n"
+                                    f"**Amount:** ₹{amt:.2f} | **Commission:** ₹{comm:.2f} | **Tax:** ₹{tax:.2f} \n"
                                     f"🕒 {ts}"
                                 )
                             with col2:
@@ -1309,7 +1204,6 @@ elif st.session_state.role == "admin":
                                         st.warning("Bill not found.")
                     else:
                         st.info("No bills found for this employee.")
-
         # Customer tab
         with tabs[1]:
             st.subheader("Customer Billing History")
@@ -1321,7 +1215,6 @@ elif st.session_state.role == "admin":
                 st.dataframe(df)
             else:
                 st.info("No customer billing data yet.")
-
         # Hood tab
         with tabs[2]:
             st.subheader("Hood Summary")
@@ -1335,7 +1228,6 @@ elif st.session_state.role == "admin":
                 st.table(pd.DataFrame(rows))
             else:
                 st.info("No hoods found.")
-
         # Membership tab
         with tabs[3]:
             st.subheader("📋 Memberships")
@@ -1355,7 +1247,6 @@ elif st.session_state.role == "admin":
                         "Remaining": f"{rem.days}d {rem.seconds // 3600}h"
                     })
                 st.table(pd.DataFrame(data))
-
                 st.markdown("---")
                 st.subheader("🗑️ Delete a Membership")
                 mem_options = {f"{cid} ({tier})": cid for cid, tier, _ in rows}
@@ -1382,7 +1273,6 @@ elif st.session_state.role == "admin":
                         "Expired At": expired_str
                     })
                 st.table(pd.DataFrame(data))
-
         # Employee Rankings tab
         with tabs[4]:
             st.subheader("🏆 Employee Rankings")
@@ -1403,7 +1293,6 @@ elif st.session_state.role == "admin":
             conn.close()
             df_rank = pd.DataFrame(ranking).sort_values(by=metric, ascending=False)
             st.table(df_rank.head(100))
-
         # Custom Filter tab
         with tabs[5]:
             st.subheader("🔍 Custom Sales Filter")
@@ -1425,20 +1314,16 @@ elif st.session_state.role == "admin":
                     st.table(pd.DataFrame(results))
                 else:
                     st.info("No employees match that filter.")
-
     # Bill Logs
     elif menu == "Bill Logs":
         st.header("🧾 Bill Logs")
-
         now = datetime.now(IST)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = now.replace(hour=23, minute=59, second=59, microsecond=0)
-
         quick_range = st.selectbox(
             "Quick Date Range",
             ["Today", "Yesterday", "Last 2 days", "Last 7 days", "This Month", "Custom"]
         )
-
         start_dt, end_dt = None, None
         if quick_range == "Today":
             start_dt, end_dt = today_start, today_end
@@ -1467,10 +1352,8 @@ elif st.session_state.role == "admin":
                 eh = st.number_input("End hour", min_value=0, max_value=23, value=23, key="bill_logs_eh")
             start_dt = datetime(sd.year, sd.month, sd.day, sh, 0, 0, tzinfo=IST)
             end_dt = datetime(ed.year, ed.month, ed.day, eh, 59, 59, tzinfo=IST)
-
         start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
         end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
-
         st.markdown("### Filters")
         col1, col2, col3 = st.columns([2, 2, 2])
         with col1:
@@ -1484,13 +1367,11 @@ elif st.session_state.role == "admin":
             emp_query = st.text_input("Employee (name or CID) contains", key="bill_logs_empq")
         with col3:
             cust_query = st.text_input("Customer CID contains", key="bill_logs_custq")
-
         rows = get_bill_logs(start_str, end_str)
         df = pd.DataFrame(rows, columns=[
             "ID", "Time", "Employee Name", "Employee CID", "Hood",
             "Customer CID", "Type", "Details", "Amount", "Commission", "Tax"
         ])
-
         if type_filter:
             df = df[df["Type"].isin(type_filter)]
         if emp_query:
@@ -1501,16 +1382,13 @@ elif st.session_state.role == "admin":
             ]
         if cust_query:
             df = df[df["Customer CID"].str.lower().str.contains(cust_query.lower(), na=False)]
-
         total_amt = df["Amount"].sum() if not df.empty else 0.0
         total_comm = df["Commission"].sum() if not df.empty else 0.0
         total_tax = df["Tax"].sum() if not df.empty else 0.0
-
         st.markdown(
-            f"**Showing {len(df):,} bill(s)** from **{start_str}** to **{end_str}**  \n"
+            f"**Showing {len(df):,} bill(s)** from **{start_str}** to **{end_str}** \n"
             f"**Total Amount:** ₹{total_amt:,.2f} | **Total Commission:** ₹{total_comm:,.2f} | **Total Tax:** ₹{total_tax:,.2f}"
         )
-
         st.dataframe(df, use_container_width=True)
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -1520,7 +1398,6 @@ elif st.session_state.role == "admin":
             mime="text/csv",
             key="bill_logs_dl"
         )
-
     # Hood War
     elif menu == "Hood War":
         st.header("⚔️ Hood War — Revenue Leaderboard")
@@ -1534,7 +1411,6 @@ elif st.session_state.role == "admin":
             ed = st.date_input("End date", value=default_end, key="war_ed")
         start_str = datetime(sd.year, sd.month, sd.day, 0, 0, 0, tzinfo=IST).strftime("%Y-%m-%d %H:%M:%S")
         end_str = datetime(ed.year, ed.month, ed.day, 23, 59, 59, tzinfo=IST).strftime("%Y-%m-%d %H:%M:%S")
-
         conn = sqlite3.connect("auto_exotic_billing.db")
         rows = conn.execute("""
           SELECT e.hood, COALESCE(SUM(b.total_amount),0) AS revenue
@@ -1547,12 +1423,10 @@ elif st.session_state.role == "admin":
         conn.close()
         df = pd.DataFrame(rows, columns=["Hood", "Revenue"]).sort_values("Revenue", ascending=False)
         st.table(df)
-
     # Loyalty
     elif menu == "Loyalty":
         st.header("🎯 Customer Loyalty")
         st.caption(f"Earning rate: 1 point per ₹{LOYALTY_EARN_PER_RS} on non-membership bills")
-
         conn = sqlite3.connect("auto_exotic_billing.db")
         top = conn.execute("SELECT customer_cid, points FROM loyalty ORDER BY points DESC LIMIT 100").fetchall()
         conn.close()
@@ -1561,7 +1435,6 @@ elif st.session_state.role == "admin":
             st.table(pd.DataFrame(top, columns=["Customer CID", "Points"]))
         else:
             st.info("No loyalty data yet.")
-
         st.markdown("---")
         st.subheader("Adjust Points (Admin)")
         with st.form("loyalty_adjust", clear_on_submit=True):
@@ -1574,7 +1447,6 @@ elif st.session_state.role == "admin":
                 else:
                     add_loyalty_points(cust, int(delta))
                     st.success("Points updated.")
-
         st.markdown("---")
         st.subheader("Lookup Customer Points")
         lookup = st.text_input("Customer CID", key="loy_lookup")
@@ -1584,20 +1456,15 @@ elif st.session_state.role == "admin":
             conn.close()
             pts = row[0] if row else 0
             st.info(f"{lookup} has **{pts}** loyalty points.")
-
     # Shifts
-        # Shifts
-        # Shifts
     elif menu == "Shifts":
         st.header("⏱️ Shifts")
-
         # tabs: by-employee vs live
         tab_emp, tab_live = st.tabs(["By Employee", "Live Shifts"])
-
         # ---------- BY EMPLOYEE ----------
         with tab_emp:
             # employee selector (name + CID)
-            all_emp = get_all_employee_cids()  # [(cid, name), ...]
+            all_emp = get_all_employee_cids() # [(cid, name), ...]
             if not all_emp:
                 st.info("No employees found.")
             else:
@@ -1605,7 +1472,6 @@ elif st.session_state.role == "admin":
                 cid_map = {f"{name} ({cid})": cid for cid, name in all_emp}
                 sel_label = st.selectbox("Select Employee", labels, key="shift_emp_picker")
                 sel_cid = cid_map[sel_label]
-
                 # date range for this employee
                 now = datetime.now(IST)
                 colA, colB = st.columns(2)
@@ -1613,10 +1479,8 @@ elif st.session_state.role == "admin":
                     sd = st.date_input("From", value=(now - timedelta(days=7)).date(), key="shift_emp_sd")
                 with colB:
                     ed = st.date_input("To", value=now.date(), key="shift_emp_ed")
-
                 start_str = datetime(sd.year, sd.month, sd.day, 0, 0, 0, tzinfo=IST).strftime("%Y-%m-%d %H:%M:%S")
                 end_str = datetime(ed.year, ed.month, ed.day, 23, 59, 59, tzinfo=IST).strftime("%Y-%m-%d %H:%M:%S")
-
                 # query only that employee's shifts, sorted (latest first)
                 conn = sqlite3.connect("auto_exotic_billing.db")
                 rows = conn.execute(
@@ -1636,7 +1500,6 @@ elif st.session_state.role == "admin":
                     (sel_cid, start_str, end_str)
                 ).fetchall()
                 conn.close()
-
                 df = pd.DataFrame(
                     rows,
                     columns=[
@@ -1644,7 +1507,6 @@ elif st.session_state.role == "admin":
                         "Duration (min)", "Bills", "Revenue"
                     ]
                 )
-
                 # quick summary
                 if not df.empty:
                     total_shifts = len(df)
@@ -1656,14 +1518,11 @@ elif st.session_state.role == "admin":
                     col2.metric("Minutes", f"{total_minutes:,}")
                     col3.metric("Bills", f"{total_bills:,}")
                     col4.metric("Revenue", f"₹{total_rev:,.2f}")
-
                 st.dataframe(df, use_container_width=True)
-
         # ---------- LIVE SHIFTS ----------
         with tab_live:
             st.subheader("Active (Live) Shifts")
             auto = st.toggle("Auto-refresh every 60s", value=False, key="shifts_live_auto")
-
             # show all active shifts with names and elapsed time
             conn = sqlite3.connect("auto_exotic_billing.db")
             live = conn.execute(
@@ -1676,7 +1535,6 @@ elif st.session_state.role == "admin":
                 """
             ).fetchall()
             conn.close()
-
             if live:
                 # compute elapsed per shift
                 data = []
@@ -1696,12 +1554,10 @@ elif st.session_state.role == "admin":
                 st.table(pd.DataFrame(data).sort_values("Elapsed (min)", ascending=False))
             else:
                 st.info("No active shifts.")
-
             if auto:
                 import time
                 time.sleep(60)
                 st.rerun()
-
     # Audit
     elif menu == "Audit":
         st.header("🛡️ Audit Log")
@@ -1716,3 +1572,55 @@ elif st.session_state.role == "admin":
             st.dataframe(df, use_container_width=True)
         else:
             st.info("Audit log is empty.")
+    # Manage Items
+    elif menu == "Manage Items":
+        st.header("🛒 Manage Items")
+        tabs = st.tabs(["➕ Add Item", "✏️ Edit Item", "🗑️ Delete Item", "📋 View Items"])
+        with tabs[0]:
+            st.subheader("➕ Add New Item")
+            with st.form("add_item", clear_on_submit=True):
+                name = st.text_input("Item Name")
+                price = st.number_input("Price (₹)", min_value=0.0)
+                stock = st.number_input("Initial Stock", min_value=0, step=1)
+                if st.form_submit_button("Add Item"):
+                    if name and price >= 0:
+                        add_item(name, price, stock)
+                        st.success(f"Added item '{name}'")
+                    else:
+                        st.warning("Name and valid price required.")
+        with tabs[1]:
+            st.subheader("✏️ Edit Item")
+            items = get_all_items()
+            if items:
+                names = [i[0] for i in items]
+                sel = st.selectbox("Select Item", names, key="edit_item_sel")
+                current_price = next((i[1] for i in items if i[0] == sel), 0.0)
+                current_stock = next((i[2] for i in items if i[0] == sel), 0)
+                new_price = st.number_input("New Price (₹)", min_value=0.0, value=current_price)
+                new_stock = st.number_input("New Stock", min_value=0, step=1, value=current_stock)
+                if st.button("Update Item"):
+                    update_item(sel, new_price, new_stock)
+                    st.success(f"Updated '{sel}'")
+                    st.rerun()
+            else:
+                st.info("No items to edit.")
+        with tabs[2]:
+            st.subheader("🗑️ Delete Item")
+            items = get_all_items()
+            if items:
+                names = [i[0] for i in items]
+                sel = st.selectbox("Select Item to Delete", names, key="delete_item_sel")
+                if st.button("Delete Item"):
+                    delete_item(sel)
+                    st.success(f"Deleted '{sel}'")
+                    st.rerun()
+            else:
+                st.info("No items to delete.")
+        with tabs[3]:
+            st.subheader("📋 All Items")
+            items = get_all_items()
+            if items:
+                df = pd.DataFrame(items, columns=["Name", "Price (₹)", "Stock"])
+                st.dataframe(df)
+            else:
+                st.info("No items found.")
