@@ -749,12 +749,13 @@ def login(u, p):
         st.session_state.logged_in = True
         st.session_state.role = "admin"
         st.session_state.username = u
+        st.session_state.display_name = "Owner"
         st.success("Logged in as admin")
         return
 
     # treat 'u' as employee CID; authenticate against employees table
     conn = sqlite3.connect("auto_exotic_billing.db")
-    row = conn.execute("SELECT name FROM employees WHERE cid = ?", (u,)).fetchone()
+    row = conn.execute("SELECT name, rank FROM employees WHERE cid = ?", (u,)).fetchone()
     conn.close()
 
     if not row:
@@ -764,14 +765,15 @@ def login(u, p):
     name = row[0] or ""
 
     def last3_alnum(s: str) -> str:
-        s_clean = "".join(ch for ch in s if ch.isalnum())
+        s_clean = "".join(ch for ch in (s or "") if ch.isalnum())
         return s_clean[-3:].lower() if s_clean else ""
 
-    expected = last3_alnum(name) + last3_alnum(u)
+    expected = (last3_alnum(name) + last3_alnum(u)).lower()
     if (p or "").strip().lower() == expected:
         st.session_state.logged_in = True
         st.session_state.role = "user"
         st.session_state.username = u
+        st.session_state.display_name = name
         st.success(f"Logged in as user {u}")
     else:
         st.error("Invalid credentials")
