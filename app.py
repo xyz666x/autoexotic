@@ -742,10 +742,13 @@ def end_shift(employee_cid):
     return True, "Shift ended."
 
 
+import sqlite3
+import streamlit as st
+
 # ---------- AUTHENTICATION ----------
 def login(u, p):
     # Admin/backdoor
-    if u == "owner" and p == "owner666":
+    if u.lower() == "owner" and p == "owner666":
         st.session_state.logged_in = True
         st.session_state.role = "admin"
         st.session_state.username = u
@@ -753,44 +756,60 @@ def login(u, p):
         st.success("Logged in as admin")
         return
 
-    # treat 'u' as employee CID; authenticate against employees table
+    uname_input = (u or "").strip().lower()
+    pwd_input = (p or "").strip().lower()
+
+    # Connect to DB
     conn = sqlite3.connect("auto_exotic_billing.db")
-    row = conn.execute("SELECT name, rank FROM employees WHERE cid = ?", (u,)).fetchone()
+    row = conn.execute("SELECT cid, name, rank FROM employees").fetchall()
     conn.close()
 
-    if not row:
+    # Find employee by first name (case-insensitive)
+    emp = None
+    for r in row:
+        cid = r[0] or ""
+        fullname = r[1] or ""
+        first_name = fullname.strip().split()[0].lower() if fullname.strip() else ""
+        if first_name == uname_input:
+            emp = r
+            break
+
+    if not emp:
         st.error("Invalid credentials")
         return
 
-    name = row[0] or ""
+    cid = emp[0]
+    fullname = emp[1]
 
+    # Helper to get first up-to-n alphanumeric characters
     def first_n_alnum(s: str, n: int = 4) -> str:
         s_clean = "".join(ch for ch in (s or "") if ch.isalnum())
         return s_clean[:n].lower() if s_clean else ""
 
-    # Password rule: first up-to-4 alnum chars of name + first up-to-4 alnum chars of CID
-    expected = (first_n_alnum(name, 4) + first_n_alnum(u, 4)).lower()
-    if (p or "").strip().lower() == expected:
+    # Password rule
+    expected = first_n_alnum(fullname.split()[0], 4) + first_n_alnum(cid, 4)
+
+    if pwd_input == expected:
         st.session_state.logged_in = True
         st.session_state.role = "user"
-        # Make the session username be the user's name truncated to 4 (alphanumeric, lowercased)
-        short_name = first_n_alnum(name, 4)
-        st.session_state.username = short_name or u  # fallback to CID if name yields nothing
-        st.session_state.display_name = name
-        st.success(f"Logged in as user {st.session_state.display_name} ({st.session_state.username})")
+        st.session_state.username = fullname.split()[0]  # first name as username
+        st.session_state.display_name = fullname
+        st.success(f"Logged in as user {fullname}")
     else:
         st.error("Invalid credentials")
 
 
+# ---------- LOGIN FORM ----------
 if not st.session_state.logged_in:
     st.title("🧾 ExoticBill Login")
     with st.form("login_form"):
-        uname = st.text_input("Username")
+        uname = st.text_input("Username (first name)")
         pwd = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
             login(uname, pwd)
     st.stop()
 
+# ---------- SIDEBAR ----------
 with st.sidebar:
     st.success(f"Logged in as: {st.session_state.username}")
     if st.button("Logout"):
