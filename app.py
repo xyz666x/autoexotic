@@ -66,49 +66,6 @@ TAX_RATE = 0.05  # 5% on the commission
 # Earn 1 point per ₹100 spent on non-membership bills (configurable)
 LOYALTY_EARN_PER_RS = 100  # 1 point per 100 INR
 
-# ---- CUSTOM LOGIN FUNCTION ----
-def custom_login(username, credential):
-    conn = sqlite3.connect('auto_exotic_billing.db')
-    c = conn.cursor()
-    # Username can be either name or cid, lookup both ways
-    c.execute("SELECT cid, name FROM employees WHERE cid = ? OR name = ?", (username, username))
-    row = c.fetchone()
-    conn.close()
-    if row:
-        cid, name = row
-        # Generate expected credential: first 3 chars of name + first 3 chars of CID
-        cred_check = (name[:3] + cid[:3]).lower()
-        if credential.lower() == cred_check:
-            st.session_state['loggedin'] = True
-            st.session_state['role'] = 'user'
-            st.session_state['username'] = cid
-            return True
-    return False
-
-# ---- STREAMLIT LOGIN FORM ----
-if 'loggedin' not in st.session_state:
-    st.session_state['loggedin'] = False
-
-if not st.session_state['loggedin']:
-    st.title("ExoticBill Login")
-    with st.form("loginform"):
-        uname = st.text_input("Employee Name or CID")
-        pwd = st.text_input("Credential (First 3 letters of Name + 3 of CID)", type="password")
-        submitted = st.form_submit_button("Login")
-        if submitted:
-            if not custom_login(uname, pwd):
-                st.error("Invalid credentials. Use: first 3 letters of name + first 3 letters of CID.")
-            else:
-                st.success("Login successful.")
-                st.experimental_rerun()
-    st.stop()
-else:
-    with st.sidebar:
-        st.success(f"Logged in as {st.session_state['username']}")
-        if st.button("Logout"):
-            for key in st.session_state.keys():
-                st.session_state[key] = False
-            st.experimental_rerun()
 
 # ========== DATABASE INIT & MIGRATION ==========
 def init_db():
@@ -786,22 +743,27 @@ def end_shift(employee_cid):
 
 
 # ---------- AUTHENTICATION ----------
-def login(u, p):
-    if u == "owner" and p == "owner666":
+def login(u):
+    if u == "owner":
         st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "admin", u
-    elif u == "emp" and p == "emp456":
-        st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
-    else:
-        st.error("Invalid credentials")
+        return
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    rows = conn.execute("SELECT cid, name FROM employees").fetchall()
+    conn.close()
+    for cid, name in rows:
+        expected_u = (name[:3] + cid[:3]).lower()
+        if u.lower() == expected_u:
+            st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", f"{name} ({cid})"
+            return
+    st.error("Invalid credentials")
 
 
 if not st.session_state.logged_in:
     st.title("🧾 ExoticBill Login")
     with st.form("login_form"):
         uname = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
-            login(uname, pwd)
+            login(uname)
     st.stop()
 
 with st.sidebar:
@@ -1497,8 +1459,6 @@ elif st.session_state.role == "admin":
             st.info(f"{lookup} has **{pts}** loyalty points.")
 
     # Shifts
-        # Shifts
-        # Shifts
     elif menu == "Shifts":
         st.header("⏱️ Shifts")
 
