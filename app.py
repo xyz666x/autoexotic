@@ -824,10 +824,41 @@ if st.session_state.role == "user":
         st.success(f"Bill saved! Total: ₹{st.session_state.bill_total:.2f}")
         st.session_state.bill_saved = False
 
-    # Shift controls
+    # Try to resolve logged-in employee CID (prefill and lock)
+    def _resolve_logged_in_cid():
+        # Prefer an explicit session value if present
+        if st.session_state.get("user_cid"):
+            return st.session_state.get("user_cid")
+        # Try to lookup by full display name (set by login)
+        disp = st.session_state.get("display_name")
+        conn = sqlite3.connect("auto_exotic_billing.db")
+        try:
+            if disp:
+                row = conn.execute("SELECT cid FROM employees WHERE name = ?", (disp,)).fetchone()
+                if row:
+                    return row[0]
+            # fallback: try first name (username)
+            uname = st.session_state.get("username")
+            if uname:
+                # match name starting with first name (case-insensitive)
+                row = conn.execute("SELECT cid, name FROM employees").fetchall()
+                for cid, name in row:
+                    if name and name.strip().split()[0].lower() == uname.lower():
+                        return cid
+        finally:
+            conn.close()
+        return ""
+
+    emp_cid_locked = _resolve_logged_in_cid()
+
+    # Shift controls (CID prefilled & locked if resolved)
     st.markdown("### ⏱️ Shift Controls")
     with st.container():
-        cid_for_shift = st.text_input("Your CID for Shift", key="user_shift_cid")
+        if emp_cid_locked:
+            st.text_input("Your CID for Shift", value=emp_cid_locked, disabled=True, key="user_shift_cid_locked")
+            cid_for_shift = emp_cid_locked
+        else:
+            cid_for_shift = st.text_input("Your CID for Shift", key="user_shift_cid")
         colA, colB = st.columns(2)
         with colA:
             if st.button("▶️ Start Shift"):
@@ -849,7 +880,12 @@ if st.session_state.role == "user":
     rtype = st.radio("Repair Type", ["Normal Repair", "Advanced Repair"]) if btype == "REPAIR" else None
 
     with st.form("bill_form", clear_on_submit=True):
-        emp_cid = st.text_input("Your CID (Employee)")
+        # Employee CID: prefills and is locked when available
+        if emp_cid_locked:
+            emp_cid = st.text_input("Your CID (Employee)", value=emp_cid_locked, disabled=True, key="user_emp_cid_locked")
+        else:
+            emp_cid = st.text_input("Your CID (Employee)")
+
         cust_cid = st.text_input("Customer CID")
         total, det = 0.0, ""
 
@@ -902,7 +938,12 @@ if st.session_state.role == "user":
     with st.form("mem_form_user", clear_on_submit=True):
         m_cust = st.text_input("Customer CID", key="mem_cust")
         m_tier = st.selectbox("Tier", ["Tier1", "Tier2", "Tier3", "Racer"], key="mem_tier")
-        seller_cid = st.text_input("Your CID (Seller)", key="mem_seller")
+        # seller CID should be the logged-in employee and not editable if resolved
+        if emp_cid_locked:
+            st.text_input("Your CID (Seller)", value=emp_cid_locked, disabled=True, key="mem_seller_locked")
+            seller_cid = emp_cid_locked
+        else:
+            seller_cid = st.text_input("Your CID (Seller)", key="mem_seller")
 
         submitted = st.form_submit_button("Add/Update Membership")
         if submitted:
@@ -931,6 +972,48 @@ if st.session_state.role == "user":
             st.info(f"{lookup}: {mem['tier']}, expires in {rem.days}d {rem.seconds // 3600}h on {expiry.strftime('%Y-%m-%d %H:%M:%S')} IST")
         else:
             st.info(f"No active membership for {lookup}")
+
+    # MONTHLY SHIFT LOGS & TOTAL WORKING HOURS
+    st.markdown("---")
+    st.subheader("🗓️ This Month — Shift Summary")
+    if emp_cid_locked:
+        now = datetime.now(IST)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        conn = sqlite3.connect("auto_exotic_billing.db")
+        try:
+            rows = conn.execute("""
+                SELECT id, employee_cid, start_ts, end_ts, COALESCE(duration_minutes,0), COALESCE(bills_count,0), COALESCE(revenue,0.0)
+                FROM shifts
+                WHERE employee_cid = ?
+                  AND start_ts >= ?
+                ORDER BY COALESCE(end_ts, start_ts) DESC
+            """, (emp_cid_locked, month_start.strftime("%Y-%m-%d %H:%M:%S"))).fetchall()
+        finally:
+            conn.close()
+
+        total_minutes = sum((r[4] or 0) for r in rows)
+        total_hours = total_minutes / 60.0
+        # display name if available
+        display_name = st.session_state.get("display_name") or ""
+        st.metric("Employee", f"{display_name} ({emp_cid_locked})")
+        st.metric("Total Working Hours (this month)", f"{total_hours:.2f} hrs")
+
+        if rows:
+            table_rows = []
+            for sid, cid, start_ts, end_ts, mins, bills, revenue in rows:
+                table_rows.append({
+                    "Shift ID": sid,
+                    "Start": start_ts,
+                    "End": end_ts or "ONGOING",
+                    "Duration (min)": mins,
+                    "Bills": bills,
+                    "Revenue": f"₹{revenue:.2f}"
+                })
+            st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
+        else:
+            st.info("No shifts recorded for this month.")
+    else:
+        st.info("Could not determine your CID automatically. Start a shift or contact admin to link your account.")
 
 # ---------- ADMIN PANEL & MAIN MENU ----------
 elif st.session_state.role == "admin":
