@@ -779,6 +779,67 @@ def login(u, p):
         st.error("Invalid credentials")
 
 
+# --- helper functions ---
+def alnum_only(s: str) -> str:
+    return "".join(ch for ch in (s or "") if ch.isalnum())
+
+def first_n_alnum(s: str, n: int) -> str:
+    s_clean = alnum_only(s)
+    return s_clean[:n].lower() if s_clean else ""
+
+def last_n_alnum(s: str, n: int) -> str:
+    s_clean = alnum_only(s)
+    return s_clean[-n:].lower() if s_clean else ""
+
+# --- login function ---
+def login(u, p):
+    # Admin/backdoor unchanged
+    if u == "owner" and p == "owner666":
+        st.session_state.logged_in = True
+        st.session_state.role = "admin"
+        st.session_state.username = u
+        st.session_state.display_name = "Owner"
+        st.success("Logged in as admin")
+        return
+
+    uname_input = (u or "").strip().lower()
+    pwd_input = (p or "").strip().lower()
+
+    # Try to find employee by CID OR by first-name (first token of name)
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    # We'll try two lookups: exact CID match first, then name-starts-with match
+    row = conn.execute("SELECT cid, name, rank FROM employees WHERE lower(cid) = ?", (uname_input,)).fetchone()
+
+    if not row:
+        # try match by first name: name column often contains full name, so use LIKE 'first%'
+        # use parameter twice safely
+        row = conn.execute("SELECT cid, name, rank FROM employees WHERE lower(name) LIKE ?", (uname_input + '%',)).fetchone()
+
+    conn.close()
+
+    if not row:
+        st.error("Invalid credentials")
+        return
+
+    cid = row[0] or ""
+    fullname = row[1] or ""
+
+    # Extract first name: first token from fullname
+    first_name = fullname.strip().split()[0] if fullname.strip() else fullname
+
+    # Expected password: first 4 alnum chars of first_name + last up to 4 alnum chars of cid
+    expected = (first_n_alnum(first_name, 4) + last_n_alnum(cid, 4)).lower()
+
+    if pwd_input == expected:
+        st.session_state.logged_in = True
+        st.session_state.role = "user"
+        st.session_state.username = uname_input  # what user typed (first name or cid)
+        st.session_state.display_name = fullname
+        st.success(f"Logged in as user {fullname}")
+    else:
+        st.error("Invalid credentials")
+
+
 if not st.session_state.logged_in:
     st.title("🧾 ExoticBill Login")
     with st.form("login_form"):
