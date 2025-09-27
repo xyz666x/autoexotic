@@ -955,15 +955,15 @@ if st.session_state.role == "user":
                     ">
                       <div style="flex:1">
                         <div style="font-weight:700;font-size:16px;margin-bottom:4px">
-                          Last saved bill — ₹{total:.2f}
+                          Saved bill — ₹{total:.2f}
                         </div>
-                        <div style="color:#444;font-size:13px;margin-bottom:6px">
+                        <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
                           Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
                         </div>
                         <div style="color:#666;font-size:12px">
-                          Seller CID: <code style="background:#efefef;padding:2px 6px;border-radius:4px">{emp_cid}</code>
+                          Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{emp_cid}</code>
                           &nbsp;•&nbsp;
-                          Customer CID: <code style="background:#efefef;padding:2px 6px;border-radius:4px">{cust_cid}</code>
+                          Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{cust_cid}</code>
                         </div>
                       </div>
                     </div>
