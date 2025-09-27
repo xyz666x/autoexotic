@@ -9,8 +9,7 @@ import time
 hide_ui_css = """
 <style>
     .stAppToolbar {visibility: hidden !important;}
-    [class*="_link_"] {visibility: hidden !important;}
-    [class*="_profileContainer_"] {visibility: hidden !important;}
+    ._profileContainer_gzau3_53 {visibility: hidden !important;}
 </style>
 """
 st.markdown(hide_ui_css, unsafe_allow_html=True)
