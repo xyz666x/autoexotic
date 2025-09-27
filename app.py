@@ -8,19 +8,7 @@ import time
 
 # ---------- CONFIG & SESSION STATE -----------
 IST = ZoneInfo("Asia/Kolkata")
-st.set_page_config(page_title="ExoticBill", page_icon="🧾", layout="wide")
-
-st.markdown("""
-<style>
-/* soften metric backgrounds slightly */
-[data-testid="stMetric"] {
-  border-radius: 8px;
-  background: rgba(0,0,0,0.04);
-  padding: 8px 10px;
-}
-</style>
-""", unsafe_allow_html=True)
-
+st.set_page_config(page_title="ExoticBill", page_icon="🧾")
 for key, default in [
     ("logged_in", False),
     ("role", None),
@@ -536,49 +524,6 @@ def get_total_commission_and_tax():
     return (row[0] or 0.0, row[1] or 0.0)
 
 
-def get_top_employees(limit: int = 5, days: int | None = None):
-    """
-    Returns list of (name, cid, total_revenue) ordered by revenue desc.
-    days=None => all-time; otherwise filters to last N days.
-    """
-    conn = sqlite3.connect("auto_exotic_billing.db")
-    cur = conn.cursor()
-    if days is not None and days > 0:
-        cutoff = (datetime.now(IST) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
-        rows = cur.execute(
-            """
-            SELECT COALESCE(e.name,'Unknown') AS name,
-                   e.cid,
-                   COALESCE(SUM(b.total_amount),0) AS total
-            FROM employees e
-            LEFT JOIN bills b
-              ON b.employee_cid = e.cid
-             AND b.timestamp >= ?
-            GROUP BY e.cid
-            ORDER BY total DESC
-            LIMIT ?
-            """,
-            (cutoff, limit),
-        ).fetchall()
-    else:
-        rows = cur.execute(
-            """
-            SELECT COALESCE(e.name,'Unknown') AS name,
-                   e.cid,
-                   COALESCE(SUM(b.total_amount),0) AS total
-            FROM employees e
-            LEFT JOIN bills b
-              ON b.employee_cid = e.cid
-            GROUP BY e.cid
-            ORDER BY total DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
-    conn.close()
-    return rows
-
-
 # ---------- HOODS HELPERS ----------
 def add_hood(name, location):
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -790,9 +735,9 @@ def end_shift(employee_cid):
 
 # ---------- AUTHENTICATION ----------
 def login(u, p):
-    if u == "AutoExotic" and p == "AutoExotic123":
+    if u == "owner" and p == "owner666":
         st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "admin", u
-    elif u == "User" and p == "User123":
+    elif u == "emp" and p == "emp456":
         st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
     else:
         st.error("Invalid credentials")
@@ -812,23 +757,6 @@ with st.sidebar:
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
-
-    if st.session_state.role == "user":
-        st.markdown("---")
-        st.markdown("### 🏆 Top Employees")
-        tf = st.radio("Range", ["All time", "Last 7d"], horizontal=True, key="top_emp_tf_user")
-        if tf == "Last 7d":
-            top_rows = get_top_employees(limit=5, days=7)
-        else:
-            top_rows = get_top_employees(limit=5, days=None)
-
-        if top_rows:
-            for idx, (name, cid, total) in enumerate(top_rows, start=1):
-                st.markdown(
-                    f"**{idx}. {name} ({cid})**  \n₹{total:,.2f}",
-                )
-        else:
-            st.caption("No billing data yet.")
 
 
 # ---------- USER PANEL ----------
@@ -979,23 +907,6 @@ elif st.session_state.role == "admin":
         st.metric("Total Commission Paid", f"₹{sum_comm:,.2f}")
         st.metric("Total Tax on Commission", f"₹{sum_tax:,.2f}")
         st.metric("Estimated Profit", f"₹{profit:,.2f}")
-
-        st.subheader("Top Performing Employees (All Time)")
-        top_emp_all_time = get_top_employees(limit=5, days=None)
-        if top_emp_all_time:
-            df_top_all = pd.DataFrame(top_emp_all_time, columns=["Name", "CID", "Total Revenue"])
-            st.table(df_top_all)
-        else:
-            st.info("No employee revenue data yet.")
-
-        st.subheader("Top Performing Employees (Last 7 Days)")
-        top_emp_last_week = get_top_employees(limit=5, days=7)
-        if top_emp_last_week:
-            df_top_week = pd.DataFrame(top_emp_last_week, columns=["Name", "CID", "Total Revenue"])
-            st.table(df_top_week)
-        else:
-            st.info("No employee revenue data for the last 7 days.")
-
 
     # Live Stats
     elif menu == "Live Stats":
@@ -1534,6 +1445,8 @@ elif st.session_state.role == "admin":
             st.info(f"{lookup} has **{pts}** loyalty points.")
 
     # Shifts
+        # Shifts
+        # Shifts
     elif menu == "Shifts":
         st.header("⏱️ Shifts")
 
@@ -1644,6 +1557,7 @@ elif st.session_state.role == "admin":
                 st.info("No active shifts.")
 
             if auto:
+                import time
                 time.sleep(60)
                 st.rerun()
 
