@@ -744,20 +744,37 @@ def end_shift(employee_cid):
 
 # ---------- AUTHENTICATION ----------
 def login(u, p):
+    # Admin/backdoor
     if u == "owner" and p == "owner666":
-        st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "admin", u
-        return True
+        st.session_state.logged_in = True
+        st.session_state.role = "admin"
+        st.session_state.username = u
+        st.success("Logged in as admin")
+        return
+
+    # treat 'u' as employee CID; authenticate against employees table
+    conn = sqlite3.connect("auto_exotic_billing.db")
+    row = conn.execute("SELECT name FROM employees WHERE cid = ?", (u,)).fetchone()
+    conn.close()
+
+    if not row:
+        st.error("Invalid credentials")
+        return
+
+    name = row[0] or ""
+
+    def last3_alnum(s: str) -> str:
+        s_clean = "".join(ch for ch in s if ch.isalnum())
+        return s_clean[-3:].lower() if s_clean else ""
+
+    expected = last3_alnum(name) + last3_alnum(u)
+    if (p or "").strip().lower() == expected:
+        st.session_state.logged_in = True
+        st.session_state.role = "user"
+        st.session_state.username = u
+        st.success(f"Logged in as user {u}")
     else:
-        conn = sqlite3.connect("auto_exotic_billing.db")
-        row = conn.execute("SELECT password_hash FROM employees WHERE username = ?", (u.lower(),)).fetchone()
-        conn.close()
-        if row:
-            expected_hash = row[0]
-            input_hash = hashlib.sha256(p.encode()).hexdigest()
-            if input_hash == expected_hash:
-                st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
-                return True
-    return False
+        st.error("Invalid credentials")
 
 
 if not st.session_state.logged_in:
