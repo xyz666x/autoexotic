@@ -542,11 +542,6 @@ def get_total_commission_and_tax():
     return (row[0] or 0.0, row[1] or 0.0)
 
 # ---------- ITEMS HELPERS ----------
-
-def refresh_items_cache():
-    """Reload items from DB into session state for live updates."""
-    st.session_state.items_cache = get_all_items()
-
 def add_item(name, price, stock):
     conn = sqlite3.connect("auto_exotic_billing.db")
     try:
@@ -555,14 +550,13 @@ def add_item(name, price, stock):
     except sqlite3.IntegrityError:
         st.warning("Item already exists.")
     conn.close()
-    refresh_items_cache()
+    
 
 def delete_item(name):
     conn = sqlite3.connect("auto_exotic_billing.db")
     conn.execute("DELETE FROM items WHERE name=?", (name,))
     conn.commit()
     conn.close()
-    refresh_items_cache()
 
 
 def update_item_stock(name, delta):
@@ -570,7 +564,6 @@ def update_item_stock(name, delta):
     conn.execute("UPDATE items SET stock = stock + ? WHERE name=?", (delta, name))
     conn.commit()
     conn.close()
-    refresh_items_cache()  
 
 def get_all_items():
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -1030,6 +1023,7 @@ if st.session_state.role == "user":
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
+                st.rerun()  
 
 
     # MEMBERSHIP FORM (user only)
