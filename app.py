@@ -773,9 +773,11 @@ def login(u, p):
     if (p or "").strip().lower() == expected:
         st.session_state.logged_in = True
         st.session_state.role = "user"
-        st.session_state.username = u
+        # Make the session username be the user's name truncated to 4 (alphanumeric, lowercased)
+        short_name = first_n_alnum(name, 4)
+        st.session_state.username = short_name or u  # fallback to CID if name yields nothing
         st.session_state.display_name = name
-        st.success(f"Logged in as user {u}")
+        st.success(f"Logged in as user {st.session_state.display_name} ({st.session_state.username})")
     else:
         st.error("Invalid credentials")
 
