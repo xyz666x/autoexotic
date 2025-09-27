@@ -939,6 +939,23 @@ if st.session_state.role == "user":
                     "details": det,
                     "amount": total,
                 }
+                # Inline embedded preview card shown immediately below the Save button
+                st.markdown(
+                    f"""
+                    <div style="display:flex;align-items:center;border:1px solid #e6e6e6;padding:10px;border-radius:8px;background:#fbfbfb;margin-top:8px">
+                      <div style="flex:1">
+                        <div style="font-weight:700;font-size:16px;margin-bottom:4px">Last saved bill — ₹{total:.2f}</div>
+                        <div style="color:#444;font-size:13px;margin-bottom:6px">Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}</div>
+                        <div style="color:#666;font-size:12px">
+                          Seller CID: <code style="background:#efefef;padding:2px 6px;border-radius:4px">{emp_cid}</code>
+                          &nbsp;•&nbsp;
+                          Customer CID: <code style="background:#efefef;padding:2px 6px;border-radius:4px">{cust_cid}</code>
+                        </div>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         # Show the most recently saved bill (if any) directly below the Save button
         if st.session_state.get("last_bill"):
