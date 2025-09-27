@@ -818,6 +818,24 @@ with st.sidebar:
 
 
 # ---------- USER PANEL ----------
+# Hide the Streamlit sidebar (so header nav feels like the top nav)
+st.markdown("""<style>
+    /* Hide the built-in sidebar */
+    div[data-testid="stSidebar"] {display: none;}
+    /* Small tweak so page content doesn't get hidden behind a fixed header if we add one later */
+    main[role="main"] { padding-top: 48px; }
+</style>""", unsafe_allow_html=True)
+
+# Top-right header/navigation (display name + logout)
+display_name = st.session_state.get("display_name") or st.session_state.get("username", "")
+col_left, col_right = st.columns([9, 1])
+with col_right:
+    if display_name:
+        st.write(f"**{display_name}**")
+    if st.button("Logout", key="top_logout"):
+        st.session_state.clear()
+        st.rerun()
+
 if st.session_state.role == "user":
     st.title("🧾 ExoticBill - Add New Bill")
     if st.session_state.bill_saved:
