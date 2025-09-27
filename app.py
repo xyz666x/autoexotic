@@ -6,6 +6,16 @@ from zoneinfo import ZoneInfo
 import json
 import time
 
+hide_ui_css = """
+<style>
+    .stAppToolbar {visibility: hidden !important;}
+    [class*="_link_"] {visibility: hidden !important;}
+    [class*="_profileContainer_"] {visibility: hidden !important;}
+</style>
+"""
+st.markdown(hide_ui_css, unsafe_allow_html=True)
+
+
 # ---------- CONFIG & SESSION STATE -----------
 IST = ZoneInfo("Asia/Kolkata")
 st.set_page_config(page_title="ExoticBill", page_icon="🧾")
