@@ -1020,10 +1020,9 @@ if st.session_state.role == "user":
                     """,
                     unsafe_allow_html=True,
                 )
-                # Deduct stock for items
+                st.rerun()  
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
-                st.rerun()  
 
 
     # MEMBERSHIP FORM (user only)
