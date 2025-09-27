@@ -15,7 +15,7 @@ hide_ui_css = """
 st.markdown(hide_ui_css, unsafe_allow_html=True)
 
 
-# ---------- CONFIG & SESSION STATE -----------
+# ---------- CONFIG & SESSION STATE ----------
 IST = ZoneInfo("Asia/Kolkata")
 st.set_page_config(page_title="ExoticBill", page_icon="🧾")
 for key, default in [
