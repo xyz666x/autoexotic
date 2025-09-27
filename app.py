@@ -852,39 +852,8 @@ if st.session_state.role == "user":
                     conn.close()
                 else:
                     save_bill(emp_cid, cust_cid, btype, det, total)
-                    st.markdown(
-                            f"""
-                            <div style="
-                            display:flex;
-                            align-items:center;
-                            border-left:3px solid #28a745;
-                            padding:10px;
-                            border-radius:8px;
-                            background:rgba(255,255,255,0.0);
-                            backdrop-filter: blur(6px);
-                            -webkit-backdrop-filter: blur(6px);
-                            margin-top:8px;
-                            ">
-                            <div style="flex:1">
-                                <div style="font-weight:700;font-size:16px;margin-bottom:4px">
-                                Saved bill — ₹{total:.2f}
-                                </div>
-                                <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
-                                Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
-                                </div>
-                                <div style="color:#666;font-size:12px">
-                                Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{emp_cid}</code>
-                                &nbsp;•&nbsp;
-                                Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{cust_cid}</code>
-                                </div>
-                            </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
                     st.session_state.bill_saved = True
                     st.session_state.bill_total = total
-
                     st.markdown(
                     f"""
                     <div style="
@@ -915,6 +884,15 @@ if st.session_state.role == "user":
                     """,
                     unsafe_allow_html=True,
                 )
+        # Show the most recently saved bill (if any) directly below the Save button
+        if st.session_state.get("last_bill"):
+            lb = st.session_state["last_bill"]
+            st.markdown(
+            f"**Last saved bill — ₹{lb['amount']:.2f}**  \n"
+            f"Type: {lb['billing_type']}  \n"
+            f"Details: {lb['details']}  \n"
+            f"Seller CID: `{lb['employee_cid']}` | Customer CID: `{lb['customer_cid']}`"
+            )
 
     # MEMBERSHIP FORM (user only)
     st.markdown("---")
@@ -988,7 +966,7 @@ if st.session_state.role == "user":
                     "Bills": bills,
                     "Revenue": f"₹{revenue:.2f}"
                 })
-            st.dataframe(pd.DataFrame(table_rows), width=True)
+            st.dataframe(pd.DataFrame(table_rows), use_container_width=True)
         else:
             st.info("No shifts recorded for this month.")
     else:
@@ -1451,7 +1429,7 @@ elif st.session_state.role == "admin":
             f"**Showing {len(df):,} bill(s)** from **{start_str}** to **{end_str}** \n"
             f"**Total Amount:** ₹{total_amt:,.2f} | **Total Commission:** ₹{total_comm:,.2f} | **Total Tax:** ₹{total_tax:,.2f}"
         )
-        st.dataframe(df, width=True)
+        st.dataframe(df, use_container_width=True)
         csv = df.to_csv(index=False).encode("utf-8")
         st.download_button(
             "⬇️ Download CSV",
@@ -1580,7 +1558,7 @@ elif st.session_state.role == "admin":
                     col2.metric("Minutes", f"{total_minutes:,}")
                     col3.metric("Bills", f"{total_bills:,}")
                     col4.metric("Revenue", f"₹{total_rev:,.2f}")
-                st.dataframe(df, width=True)
+                st.dataframe(df, use_container_width=True)
         # ---------- LIVE SHIFTS ----------
         with tab_live:
             st.subheader("Active (Live) Shifts")
@@ -1631,7 +1609,7 @@ elif st.session_state.role == "admin":
         conn.close()
         if rows:
             df = pd.DataFrame(rows, columns=["Action", "Table", "Row ID", "Actor", "Time", "Old", "New"])
-            st.dataframe(df, width=True)
+            st.dataframe(df, use_container_width=True)
         else:
             st.info("Audit log is empty.")
     # Manage Items
