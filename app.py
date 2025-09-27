@@ -5,15 +5,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import json
 import time
-
-hide_ui_css = """
-<style>
-    .stAppToolbar {visibility: hidden !important;}
-    ._profileContainer_gzau3_53 {visibility: hidden !important;}
-</style>
-"""
-st.markdown(hide_ui_css, unsafe_allow_html=True)
-
+import hashlib
 
 # ---------- CONFIG & SESSION STATE -----------
 IST = ZoneInfo("Asia/Kolkata")
@@ -106,6 +98,10 @@ def init_db():
         c.execute("ALTER TABLE employees ADD COLUMN rank TEXT DEFAULT 'Trainee'")
     if not has_column("employees", "hood"):
         c.execute("ALTER TABLE employees ADD COLUMN hood TEXT DEFAULT 'No Hood'")
+    if not has_column("employees", "username"):
+        c.execute("ALTER TABLE employees ADD COLUMN username TEXT UNIQUE")
+    if not has_column("employees", "password_hash"):
+        c.execute("ALTER TABLE employees ADD COLUMN password_hash TEXT")
 
     # memberships (active)
     c.execute("""
@@ -348,7 +344,28 @@ def add_employee(cid, name, rank="Trainee"):
         conn.commit()
     except sqlite3.IntegrityError:
         st.warning("Employee CID already exists.")
+        conn.close()
+        return None, None
+
+    # Generate username and password
+    first_name = name.split()[0] if ' ' in name else name
+    username = first_name.lower()
+    plain_pass = first_name[:4].lower() + cid[-4:]
+    password_hash = hashlib.sha256(plain_pass.encode()).hexdigest()
+
+    try:
+        conn.execute("UPDATE employees SET username = ?, password_hash = ? WHERE cid = ?",
+                     (username, password_hash, cid))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        st.warning("Generated username already exists. Please choose a different name.")
+        conn.execute("DELETE FROM employees WHERE cid = ?", (cid,))
+        conn.commit()
+        conn.close()
+        return None, None
+
     conn.close()
+    return username, plain_pass
 
 
 def delete_employee(cid):
@@ -375,10 +392,10 @@ def update_employee(cid, name=None, rank=None, hood=None):
 
 def get_employee_details(cid):
     conn = sqlite3.connect("auto_exotic_billing.db")
-    row = conn.execute("SELECT name, rank, hood FROM employees WHERE cid = ?", (cid,)).fetchone()
+    row = conn.execute("SELECT name, rank, hood, username FROM employees WHERE cid = ?", (cid,)).fetchone()
     conn.close()
     if row:
-        return {"name": row[0], "rank": row[1], "hood": row[2]}
+        return {"name": row[0], "rank": row[1], "hood": row[2], "username": row[3]}
     return None
 
 
@@ -746,10 +763,18 @@ def end_shift(employee_cid):
 def login(u, p):
     if u == "owner" and p == "owner666":
         st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "admin", u
-    elif u == "emp" and p == "emp456":
-        st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
+        return True
     else:
-        st.error("Invalid credentials")
+        conn = sqlite3.connect("auto_exotic_billing.db")
+        row = conn.execute("SELECT password_hash FROM employees WHERE username = ?", (u.lower(),)).fetchone()
+        conn.close()
+        if row:
+            expected_hash = row[0]
+            input_hash = hashlib.sha256(p.encode()).hexdigest()
+            if input_hash == expected_hash:
+                st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
+                return True
+    return False
 
 
 if not st.session_state.logged_in:
@@ -758,7 +783,10 @@ if not st.session_state.logged_in:
         uname = st.text_input("Username")
         pwd = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
-            login(uname, pwd)
+            if login(uname, pwd):
+                st.rerun()
+            else:
+                st.error("Invalid credentials")
     st.stop()
 
 with st.sidebar:
@@ -1047,10 +1075,13 @@ elif st.session_state.role == "admin":
                 new_hood = st.selectbox("Hood", ["No Hood"] + hds)
                 if st.form_submit_button("Add Employee"):
                     if new_cid and new_name:
-                        add_employee(new_cid, new_name, new_rank)
-                        if new_hood != "No Hood":
-                            update_employee(new_cid, hood=new_hood)
-                        st.success(f"Added {new_name} ({new_cid})")
+                        username, plain_pass = add_employee(new_cid, new_name, new_rank)
+                        if username:
+                            if new_hood != "No Hood":
+                                update_employee(new_cid, hood=new_hood)
+                            st.success(f"Added {new_name} ({new_cid})\nUsername: {username}\nPassword: {plain_pass}")
+                        else:
+                            st.warning("Failed to add employee.")
                     else:
                         st.warning("CID and Name required.")
 
@@ -1117,7 +1148,8 @@ elif st.session_state.role == "admin":
                         "CID": cid,
                         "Name": name,
                         "Rank": details["rank"],
-                        "Hood": details["hood"]
+                        "Hood": details["hood"],
+                        "Username": details["username"]
                     })
             if all_rows:
                 df = pd.DataFrame(all_rows)
@@ -1454,8 +1486,6 @@ elif st.session_state.role == "admin":
             st.info(f"{lookup} has **{pts}** loyalty points.")
 
     # Shifts
-        # Shifts
-        # Shifts
     elif menu == "Shifts":
         st.header("⏱️ Shifts")
 
