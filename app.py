@@ -942,10 +942,24 @@ if st.session_state.role == "user":
                 # Inline embedded preview card shown immediately below the Save button
                 st.markdown(
                     f"""
-                    <div style="display:flex;align-items:center;border:1px solid #e6e6e6;padding:10px;border-radius:8px;background:#fbfbfb;margin-top:8px">
+                    <div style="
+                      display:flex;
+                      align-items:center;
+                      border-left:3px solid #28a745;
+                      padding:10px;
+                      border-radius:8px;
+                      background:rgba(255,255,255,0.0);
+                      backdrop-filter: blur(6px);
+                      -webkit-backdrop-filter: blur(6px);
+                      margin-top:8px;
+                    ">
                       <div style="flex:1">
-                        <div style="font-weight:700;font-size:16px;margin-bottom:4px">Last saved bill — ₹{total:.2f}</div>
-                        <div style="color:#444;font-size:13px;margin-bottom:6px">Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}</div>
+                        <div style="font-weight:700;font-size:16px;margin-bottom:4px">
+                          Last saved bill — ₹{total:.2f}
+                        </div>
+                        <div style="color:#444;font-size:13px;margin-bottom:6px">
+                          Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
+                        </div>
                         <div style="color:#666;font-size:12px">
                           Seller CID: <code style="background:#efefef;padding:2px 6px;border-radius:4px">{emp_cid}</code>
                           &nbsp;•&nbsp;
