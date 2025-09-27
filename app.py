@@ -1024,10 +1024,17 @@ if st.session_state.role == "user":
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
 
-                for i, (name, price, stock) in enumerate(st.session_state.items):
+                 # Update stock in DB and session state
+                new_items = []
+                for name, price, stock in st.session_state["items"]:
                     if name in sel:
-                        st.session_state.items[i] = (name, price, stock - sel[name])
+                        qty = sel[name]
+                        update_item_stock(name, -qty)      # DB update
+                        new_items.append((name, price, stock - qty))  # Session update
+                    else:
+                        new_items.append((name, price, stock))
 
+                st.session_state["items"] = new_items  # replace with updated list
                 
 
 
