@@ -550,12 +550,14 @@ def add_item(name, price, stock):
     except sqlite3.IntegrityError:
         st.warning("Item already exists.")
     conn.close()
+    
 
 def delete_item(name):
     conn = sqlite3.connect("auto_exotic_billing.db")
     conn.execute("DELETE FROM items WHERE name=?", (name,))
     conn.commit()
     conn.close()
+
 
 def update_item_stock(name, delta):
     conn = sqlite3.connect("auto_exotic_billing.db")
@@ -1812,7 +1814,7 @@ elif st.session_state.role == "admin":
     # Items
     elif menu == "Items":
         st.header("📦 Manage Items")
-        tabs = st.tabs(["Add Item", "Delete Item", "View Items"])
+        tabs = st.tabs(["Add Item", "Update Stock", "Delete Item", "View Items"])
 
         with tabs[0]:
             st.subheader("➕ Add New Item")
@@ -1826,6 +1828,23 @@ elif st.session_state.role == "admin":
                         st.success(f"Added item {name} (₹{price}, stock {stock})")
 
         with tabs[1]:
+            st.subheader("🔄 Update Stock")
+            items = get_all_items()
+            if items:
+                names = [i[0] for i in items]
+                sel = st.selectbox("Select Item", names, key="update_stock_item")
+                delta = st.number_input("Change in Stock (e.g., +10 or -5)", step=1, value=0)
+                if st.button("Apply Stock Update"):
+                    if delta != 0:
+                        update_item_stock(sel, delta)
+                        st.success(f"Updated stock for {sel}: {delta:+d}")
+                    else:
+                        st.info("Enter a non-zero change.")
+            else:
+                st.info("No items found.")
+
+
+        with tabs[2]:
             st.subheader("🗑️ Delete Item")
             items = [i[0] for i in get_all_items()]
             if items:
@@ -1836,7 +1855,7 @@ elif st.session_state.role == "admin":
             else:
                 st.info("No items found.")
 
-        with tabs[2]:
+        with tabs[3]:
             st.subheader("📋 All Items")
             rows = get_all_items()
             if rows:
