@@ -977,13 +977,18 @@ if st.session_state.role == "user":
             if not emp_cid or not cust_cid or total == 0:
                 st.warning("Fill all fields.")
             else:
-                
-                if btype == "ITEMS":
-                    # Deduct stock
-                    for item, q in sel.items():
-                        update_item_stock(item, -q)
                 save_bill(emp_cid, cust_cid, btype, det, total)
-
+                # Deduct sold item quantities from stock (only for ITEMS bills)
+                if btype == "ITEMS" and sel:
+                    for item_name, qty in sel.items():
+                        if qty <= 0:
+                            continue
+                        current = get_item(item_name)
+                        current_stock = current[1] if current else 0
+                        if qty > current_stock:
+                            st.warning(f"Could not deduct stock for {item_name}: only {current_stock} available.")
+                            continue
+                        update_item_stock(item_name, -qty)
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
                 # persist last saved bill to show below the button
