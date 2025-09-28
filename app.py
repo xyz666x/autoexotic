@@ -794,8 +794,6 @@ def end_shift(employee_cid):
     return True, "Shift ended."
 
 
-import sqlite3
-import streamlit as st
 
 # ---------- AUTHENTICATION ----------
 def login(u, p):
@@ -852,18 +850,16 @@ def login(u, p):
 
 
 # ---------- LOGIN FORM ----------
-if not st.session_state.logged_in:
+if not st.session_state.get("logged_in", False):
     st.title("🧾 ExoticBill Login")
     with st.form("login_form"):
         uname = st.text_input("Username (first name)")
         pwd = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login")
-        if submitted:
+        if st.form_submit_button("Login"):
             login(uname, pwd)
-            # Force a rerun if login was successful
-            if st.session_state.logged_in:
-                st.experimental_rerun()
-    st.stop()
+else:
+    # ---------- MAIN APP ----------
+    st.warning("loading...")
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
