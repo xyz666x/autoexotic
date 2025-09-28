@@ -849,25 +849,27 @@ def login(u, p):
         st.error("Invalid credentials")
 
 
-# ---------- LOGIN FORM ----------
+# ---------- LOGIN OR APP ----------
 if not st.session_state.get("logged_in", False):
     st.title("🧾 ExoticBill Login")
     with st.form("login_form"):
         uname = st.text_input("Username (first name)")
         pwd = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
-            login(uname, pwd)
+            if login(uname, pwd):
+                st.success(f"Welcome {st.session_state.display_name}!")
+            else:
+                st.error("Invalid credentials")
 else:
+    # ---------- SIDEBAR ----------
+    with st.sidebar:
+        st.success(f"Logged in as: {st.session_state.username}")
+        if st.button("Logout"):
+            st.session_state.clear()
+            st.rerun()
+
     # ---------- MAIN APP ----------
-    st.warning("loading...")
-
-# ---------- SIDEBAR ----------
-with st.sidebar:
-    st.success(f"Logged in as: {st.session_state.username}")
-    if st.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
-
+    st.write("✅ Now you see the user panel / app content here")
 
 # ---------- USER PANEL ----------
 if st.session_state.role == "user":
