@@ -981,6 +981,23 @@ if st.session_state.role == "user":
 
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
+
+                # Update items stock only when billing is of type ITEMS and 'sel' exists.
+                if btype == "ITEMS":
+                    curr_items = st.session_state.get("items", get_all_items())
+                    new_items = []
+                    for name, price, stock in curr_items:
+                        if name in sel:
+                            qty = sel[name]
+                            update_item_stock(name, -qty)       # update DB
+                            new_items.append((name, price, stock - qty))  # update session
+                        else:
+                            new_items.append((name, price, stock))
+                    st.session_state["items"] = new_items
+                else:
+                    # No item stock changes for non-ITEMS bills
+                    pass
+
                 # persist last saved bill to show below the button
                 st.session_state.last_bill = {
                     "employee_cid": emp_cid,
@@ -1020,21 +1037,8 @@ if st.session_state.role == "user":
                     """,
                     unsafe_allow_html=True,
                 )
-                # Deduct stock for items
-                for item, qty in sel.items():
-                    update_item_stock(item, -qty)
 
-                 # Update stock in DB and session state
-                new_items = []
-                for name, price, stock in st.session_state["items"]:
-                    if name in sel:
-                        qty = sel[name]
-                        update_item_stock(name, -qty)      # DB update
-                        new_items.append((name, price, stock - qty))  # Session update
-                    else:
-                        new_items.append((name, price, stock))
-
-                st.session_state["items"] = new_items  # replace with updated list
+                
                 
 
 
