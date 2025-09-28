@@ -871,6 +871,12 @@ with st.sidebar:
 
 # ---------- USER PANEL ----------
 if st.session_state.role == "user":
+    if "show_sidebar" not in st.session_state:
+        st.session_state.show_sidebar = True
+
+    # Toggle button in main page
+    if st.button("Toggle Sidebar"):
+        st.session_state.show_sidebar = not st.session_state.show_sidebar
     st.title("🧾 ExoticBill - Add New Bill")
     if st.session_state.bill_saved:
         st.success(f"Bill saved! Total: ₹{st.session_state.bill_total:.2f}")
