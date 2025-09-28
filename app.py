@@ -993,10 +993,7 @@ if st.session_state.role == "user":
                             new_items.append((name, price, stock - qty))  # update session
                         else:
                             new_items.append((name, price, stock))
-                    st.session_state["items"] = new_items
-                else:
-                    # No item stock changes for non-ITEMS bills
-                    pass
+                    st.session_state["items"] = new_items 
 
                 # persist last saved bill to show below the button
                 st.session_state.last_bill = {
