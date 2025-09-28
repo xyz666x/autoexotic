@@ -1,18 +1,18 @@
 import streamlit as st
 
 # Hide the default sidebar collapse arrow (desktop only)
-st.markdown(
-    """
-    <style>
-    @media (min-width: 768px){
-        [data-testid="collapsed-control"] { 
-            display: none !important; 
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# st.markdown(
+#     """
+#     <style>
+#     @media (min-width: 768px){
+#         [data-testid="collapsed-control"] { 
+#             display: none !important; 
+#         }
+#     }
+#     </style>
+#     """,
+#     unsafe_allow_html=True
+# )
 
 # Sidebar content
 with st.sidebar:
