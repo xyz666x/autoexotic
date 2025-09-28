@@ -857,8 +857,12 @@ if not st.session_state.logged_in:
     with st.form("login_form"):
         uname = st.text_input("Username (first name)")
         pwd = st.text_input("Password", type="password")
-        if st.form_submit_button("Login"):
+        submitted = st.form_submit_button("Login")
+        if submitted:
             login(uname, pwd)
+            # Force a rerun if login was successful
+            if st.session_state.logged_in:
+                st.experimental_rerun()
     st.stop()
 
 # ---------- SIDEBAR ----------
