@@ -977,35 +977,7 @@ if st.session_state.role == "user":
             if not emp_cid or not cust_cid or total == 0:
                 st.warning("Fill all fields.")
             else:
-
-                items_placeholder = st.empty()
-
-                def render_items():
-                    items = get_all_items()  # always fresh
-                    sel = {}
-                    total = 0
-                    for name, price, stock in items:
-                        q = st.number_input(
-                            f"{name} (₹{price}, Stock: {stock}) – Qty",
-                            min_value=0, step=1, key=f"user_items_{name}"
-                        )
-                        if q:
-                            sel[name] = q
-                            total += price * q
-                    return sel, total
-
-                sel, total = render_items()
-
-                if st.form_submit_button("💾 Save Bill"):
-                    for item, qty in sel.items():
-                        update_item_stock(item, -qty)
-
-                    # 🔄 Re-render items immediately
-                    items_placeholder.empty()
-                    with items_placeholder:
-                        render_items()
                 save_bill(emp_cid, cust_cid, btype, det, total)
-                
 
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
@@ -1048,6 +1020,15 @@ if st.session_state.role == "user":
                     """,
                     unsafe_allow_html=True,
                 )
+                # Deduct stock for items
+                for item, qty in sel.items():
+                    update_item_stock(item, -qty)
+               
+
+                st.success("Bill saved and stock updated.")
+                # Refresh the app so the item stock values shown in the form reflect the DB changes
+                st.experimental_rerun()
+                
                 
 
 
