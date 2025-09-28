@@ -804,6 +804,7 @@ def login(u, p):
         st.session_state.username = u
         st.session_state.display_name = "Owner"
         st.success("Logged in as admin")
+        st.rerun() 
         return
 
     uname_input = (u or "").strip().lower()
