@@ -977,6 +977,7 @@ if st.session_state.role == "user":
             if not emp_cid or not cust_cid or total == 0:
                 st.warning("Fill all fields.")
             else:
+
                 save_bill(emp_cid, cust_cid, btype, det, total)
 
                 st.session_state.bill_saved = True
@@ -1023,12 +1024,6 @@ if st.session_state.role == "user":
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
-               
-
-                st.success("Bill saved and stock updated.")
-                # Refresh the app so the item stock values shown in the form reflect the DB changes
-                st.experimental_rerun()
-                
                 
 
 
