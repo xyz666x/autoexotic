@@ -983,7 +983,12 @@ if st.session_state.role == "user":
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
-                st.session_state.items = st.session_state.get("items", {})
+                    
+                # Reset item qty inputs and cached items after saving
+                for k in list(st.session_state.keys()):
+                    if k.startswith("user_items_"):
+                        st.session_state[k] = 0
+                st.session_state["items"] = {}
 
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
