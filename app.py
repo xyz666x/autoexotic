@@ -9,9 +9,7 @@ import time
 hide_ui_css = """
 <style>
     .stToolbarActions {visibility: hidden !important;}
-    ._profilePreview_gzau3_63 {
-        display: none !important;
-    }
+    ._profilePreview_gzau3_63 {visibility: hidden !important;}
 </style>
 """
 st.markdown(hide_ui_css, unsafe_allow_html=True)
