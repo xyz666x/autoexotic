@@ -6,12 +6,12 @@ from zoneinfo import ZoneInfo
 import json
 import time
 
-# hide_ui_css = """
-# <style>
-#     .stAppToolbar {visibility: hidden !important;}
-# </style>
-# """
-# st.markdown(hide_ui_css, unsafe_allow_html=True)
+hide_ui_css = """
+<style>
+    .stToolbarActions {visibility: hidden !important;}
+</style>
+"""
+st.markdown(hide_ui_css, unsafe_allow_html=True)
 
 
 # ---------- CONFIG & SESSION STATE -----------
