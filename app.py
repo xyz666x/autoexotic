@@ -934,6 +934,7 @@ if st.session_state.role == "user":
         total, det = 0.0, ""
 
         if btype == "ITEMS":
+            st.session_state.get("items", {})
             sel = {}
             items = get_all_items()
             for item, price, stock in items:
@@ -979,6 +980,10 @@ if st.session_state.role == "user":
             else:
 
                 save_bill(emp_cid, cust_cid, btype, det, total)
+                # Deduct stock for items
+                for item, qty in sel.items():
+                    update_item_stock(item, -qty)
+                st.session_state.items = st.session_state.get("items", {})
 
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
@@ -1021,9 +1026,7 @@ if st.session_state.role == "user":
                     """,
                     unsafe_allow_html=True,
                 )
-                # Deduct stock for items
-                for item, qty in sel.items():
-                    update_item_stock(item, -qty)
+                
                 
 
 
