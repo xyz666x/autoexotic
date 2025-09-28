@@ -859,9 +859,7 @@ if not st.session_state.logged_in:
         pwd = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
             login(uname, pwd)
-
-
-
+    st.stop()
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
@@ -869,8 +867,6 @@ with st.sidebar:
     if st.button("Logout"):
         st.session_state.clear()
         st.rerun()
-
-
 
 
 # ---------- USER PANEL ----------
