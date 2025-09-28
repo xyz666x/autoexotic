@@ -1108,7 +1108,8 @@ if st.session_state.role == "user":
         # display name if available
         display_name = st.session_state.get("display_name") or ""
         st.metric("Employee", f"{display_name} ({emp_cid_locked})")
-        st.metric("Total Working Hours (this month)", f"{total_hours:.2f} hrs")
+        hours, minutes = divmod(int(total_minutes), 60)
+        st.metric("Total Working Hours (this month)", f"{hours}hr {minutes} min")
 
         if rows:
             table_rows = []
