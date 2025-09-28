@@ -981,7 +981,7 @@ if st.session_state.role == "user":
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
-                st.session_state["items"] = []  # reset items cache
+                st.session_state["items"] = get_all_items() # reset items cache
 
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
