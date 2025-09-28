@@ -859,7 +859,127 @@ if not st.session_state.logged_in:
         pwd = st.text_input("Password", type="password")
         if st.form_submit_button("Login"):
             login(uname, pwd)
-    st.stop()
+
+# ---------- CUSTOM CSS & JAVASCRIPT FOR SIDEBAR TOGGLE ----------
+custom_css_js = """
+<style>
+/* Hide Streamlit's default toolbar and profile container */
+.stAppToolbar, ._profileContainer_gzau3_53 {
+    visibility: hidden !important;
+}
+
+/* Style for the custom sidebar toggle button */
+#sidebar-toggle-btn {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Ensure toggle button is visible when sidebar is collapsed */
+[data-testid="stSidebar"][aria-expanded="false"] ~ #sidebar-toggle-btn {
+    display: block;
+}
+
+/* Hide toggle button when sidebar is open (Streamlit's default toggle will handle closing) */
+[data-testid="stSidebar"][aria-expanded="true"] ~ #sidebar-toggle-btn {
+    display: none;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+    /* Adjust sidebar width for mobile */
+    [data-testid="stSidebar"] {
+        width: 250px !important;
+    }
+    
+    /* Ensure toggle button is visible and positioned correctly */
+    #sidebar-toggle-btn {
+        top: 15px;
+        left: 15px;
+    }
+    
+    /* Style sidebar content for mobile */
+    .stSidebar .stButton button {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .stSidebar select {
+        width: 100%;
+    }
+}
+</style>
+
+<script>
+// Function to toggle the sidebar
+function toggleSidebar() {
+    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+    if (sidebar) {
+        const isOpen = sidebar.getAttribute('aria-expanded') === 'true';
+        if (isOpen) {
+            // Streamlit's built-in collapse button will handle closing
+            document.querySelector('[data-testid="stSidebarCollapseButton"]')?.click();
+        } else {
+            // Trigger Streamlit's sidebar open
+            sidebar.setAttribute('aria-expanded', 'true');
+            sidebar.style.transform = 'translateX(0)';
+            // Hide the custom toggle button when sidebar opens
+            document.getElementById('sidebar-toggle-btn').style.display = 'none';
+        }
+    }
+}
+
+// Add event listener to the custom toggle button after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    let toggleBtn = document.getElementById('sidebar-toggle-btn');
+    if (!toggleBtn) {
+        toggleBtn = document.createElement('button');
+        toggleBtn.id = 'sidebar-toggle-btn';
+        toggleBtn.innerHTML = '☰';
+        toggleBtn.onclick = toggleSidebar;
+        document.body.appendChild(toggleBtn);
+    }
+});
+</script>
+"""
+
+# Inject custom CSS and JavaScript
+st.markdown(custom_css_js, unsafe_allow_html=True)
+
+# ---------- SIDEBAR ----------
+with st.sidebar:
+    st.success(f"Logged in as: {st.session_state.username}")
+    
+    # Logout button styled for responsiveness
+    if st.button("Logout", key="logout_btn"):
+        st.session_state.clear()
+        st.rerun()
+    
+    # Admin menu (only for admin role)
+    if st.session_state.role == "admin":
+        st.markdown("---")
+        st.subheader("Admin Menu")
+        menu = st.selectbox(
+            "Main Menu",
+            ["Sales", "Live Stats", "Manage Hoods", "Manage Staff", "Tracking", "Bill Logs", "Hood War", "Loyalty", "Shifts", "Audit", "Items"],
+            index=0,
+            key="admin_menu"
+        )
+
+
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
