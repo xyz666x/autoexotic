@@ -935,7 +935,10 @@ if st.session_state.role == "user":
 
         if btype == "ITEMS":
             sel = {}
-            items = get_all_items()
+            items = st.session_state["items"]
+            if not items:
+                items = get_all_items()
+                st.session_state["items"] = items
             for item, price, stock in items:
                 q = st.number_input(f"{item} (₹{price}, Stock: {stock}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
                 if q:
