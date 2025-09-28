@@ -933,17 +933,17 @@ if st.session_state.role == "user":
         cust_cid = st.text_input("Customer CID")
         total, det = 0.0, ""
 
-        sel = {}  # selected items & qty (always defined so later logic is safe)
         if btype == "ITEMS":
+            sel = {}
             items = get_all_items()
             for item, price, stock in items:
-            q = st.number_input(f"{item} (₹{price}, Stock: {stock}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
-            if q:
-                if q > stock:
-                st.warning(f"Not enough stock for {item}. Available: {stock}")
-                else:
-                sel[item] = q
-                total += price * q
+                q = st.number_input(f"{item} (₹{price}, Stock: {stock}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
+                if q:
+                    if q > stock:
+                        st.warning(f"Not enough stock for {item}. Available: {stock}")
+                    else:
+                        sel[item] = q
+                        total += price * q
             det = ", ".join(f"{i}×{q}" for i, q in sel.items())
 
 
@@ -954,13 +954,13 @@ if st.session_state.role == "user":
 
         elif btype == "REPAIR":
             if rtype == "Normal Repair":
-            b = st.number_input("Base repair charge (₹)", min_value=0.0, key="user_rep_base")
-            total = b + LABOR
-            det = f"Normal Repair: ₹{b}+₹{LABOR}"
+                b = st.number_input("Base repair charge (₹)", min_value=0.0, key="user_rep_base")
+                total = b + LABOR
+                det = f"Normal Repair: ₹{b}+₹{LABOR}"
             else:
-            p = st.number_input("Number of parts repaired", min_value=0, step=1, key="user_rep_parts")
-            total = p * PART_COST
-            det = f"Advanced Repair: {p}×₹{PART_COST}"
+                p = st.number_input("Number of parts repaired", min_value=0, step=1, key="user_rep_parts")
+                total = p * PART_COST
+                det = f"Advanced Repair: {p}×₹{PART_COST}"
         else:
             c_amt = st.number_input("Base customization amount (₹)", min_value=0.0, key="user_cust_amt")
             total = c_amt * 2
@@ -970,70 +970,64 @@ if st.session_state.role == "user":
         if mem:
             disc = MEMBERSHIP_DISCOUNTS.get(mem["tier"], {}).get(btype, 0)
             if disc > 0:
-            total *= (1 - disc)
-            det += f" | {mem['tier']} discount {int(disc * 100)}%"
+                total *= (1 - disc)
+                det += f" | {mem['tier']} discount {int(disc * 100)}%"
 
         if st.form_submit_button("💾 Save Bill"):
             if not emp_cid or not cust_cid or total == 0:
-            st.warning("Fill all fields.")
+                st.warning("Fill all fields.")
             else:
-            save_bill(emp_cid, cust_cid, btype, det, total)
+                save_bill(emp_cid, cust_cid, btype, det, total)
 
-            st.session_state.bill_saved = True
-            st.session_state.bill_total = total
-            # persist last saved bill to show below the button
-            st.session_state.last_bill = {
-                "employee_cid": emp_cid,
-                "customer_cid": cust_cid,
-                "billing_type": btype,
-                "details": det,
-                "amount": total,
-            }
-            # Inline embedded preview card shown immediately below the Save button
-            st.markdown(
-                f"""
-                <div style="
-                  display:flex;
-                  align-items:center;
-                  border-left:3px solid #28a745;
-                  padding:10px;
-                  border-radius:8px;
-                  background:rgba(255,255,255,0.0);
-                  backdrop-filter: blur(6px);
-                  -webkit-backdrop-filter: blur(6px);
-                  margin-top:8px;
-                ">
-                  <div style="flex:1">
-                <div style="font-weight:700;font-size:16px;margin-bottom:4px">
-                  aved bill — ₹{total:.2f}
-                </div>
-                <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
-                  Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
-                </div>
-                <div style="color:#666;font-size:12px">
-                  Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{emp_cid}</code>
-                  &nbsp;•&nbsp;
-                  Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{cust_cid}</code>
-                </div>
-                  </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            # Deduct stock for items and reset their input widgets, then refresh UI
-            if sel:
-                for item, qty in sel.items():
-                if qty:
-                    update_item_stock(item, -qty)
-                    # reset the associated number_input value so it doesn't keep the old qty on rerun
-                    key = f"user_items_{item}"
-                    try:
-                    st.session_state[key] = 0
-                    except Exception:
-                    pass
-                # re-render so updated stock values are shown in labels
+                st.session_state.bill_saved = True
+                st.session_state.bill_total = total
+                # persist last saved bill to show below the button
+                st.session_state.last_bill = {
+                    "employee_cid": emp_cid,
+                    "customer_cid": cust_cid,
+                    "billing_type": btype,
+                    "details": det,
+                    "amount": total,
+                }
+                # Inline embedded preview card shown immediately below the Save button
+                st.markdown(
+                    f"""
+                    <div style="
+                      display:flex;
+                      align-items:center;
+                      border-left:3px solid #28a745;
+                      padding:10px;
+                      border-radius:8px;
+                      background:rgba(255,255,255,0.0);
+                      backdrop-filter: blur(6px);
+                      -webkit-backdrop-filter: blur(6px);
+                      margin-top:8px;
+                    ">
+                      <div style="flex:1">
+                        <div style="font-weight:700;font-size:16px;margin-bottom:4px">
+                          aved bill — ₹{total:.2f}
+                        </div>
+                        <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
+                          Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
+                        </div>
+                        <div style="color:#666;font-size:12px">
+                          Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{emp_cid}</code>
+                          &nbsp;•&nbsp;
+                          Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{cust_cid}</code>
+                        </div>
+                      </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                # Update stock for items sold
+                if btype == "ITEMS" and sel:
+                    for item, q in sel.items():
+                        update_item_stock(item, -q)
+
+                st.success("Bill saved and stock updated.")
+                # Refresh the app so the item stock values shown in the form reflect the DB changes
                 st.experimental_rerun()
-
 
     # MEMBERSHIP FORM (user only)
     st.markdown("---")
