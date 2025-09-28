@@ -1,25 +1,24 @@
 import streamlit as st
 
-# Initialize sidebar state
-if "sidebar_open" not in st.session_state:
-    st.session_state.sidebar_open = True
+# Initialize session state for sidebar visibility
+if "sidebar_visible" not in st.session_state:
+    st.session_state.sidebar_visible = True
 
-# Toggle button
+# Toggle button to show/hide sidebar
 if st.button("Toggle Sidebar"):
-    st.session_state.sidebar_open = not st.session_state.sidebar_open
+    st.session_state.sidebar_visible = not st.session_state.sidebar_visible
 
-# Layout
-if st.session_state.sidebar_open:
-    cols = st.columns([0.25, 0.75])
-else:
-    cols = st.columns([0, 1])
+# Layout: sidebar and main content
+cols = st.columns([0.25, 0.75]) if st.session_state.sidebar_visible else st.columns([0, 1])
 
-# Sidebar column
-if st.session_state.sidebar_open:
+# Sidebar content
+if st.session_state.sidebar_visible:
     with cols[0]:
-        st.write("Custom sidebar content")
-        st.button("Another button")
+        st.header("Sidebar")
+        st.write("This is your custom sidebar content.")
+        st.button("Another sidebar button")
 
-# Main content column
+# Main content
 with cols[1]:
-    st.write("Main page content goes here")
+    st.title("Main Page")
+    st.write("Use the toggle button above to show/hide the sidebar.")
