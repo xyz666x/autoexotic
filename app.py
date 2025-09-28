@@ -1,13 +1,12 @@
 import streamlit as st
 
-# Hide the default sidebar collapse arrow (desktop only)
+# Hide the default Streamlit toolbar (top-right menu)
 st.markdown(
     """
     <style>
-    @media (min-width: 768px){
-        [data-testid="collapsed-control"] { 
-            display: none !important; 
-        }
+    /* Hide the top-right Streamlit toolbar */
+    [data-testid="stToolbar"] {
+        display: none;
     }
     </style>
     """,
@@ -17,10 +16,9 @@ st.markdown(
 # Sidebar content
 with st.sidebar:
     st.header("Sidebar")
-    st.write("This sidebar will always stay visible.")
-    st.button("Sidebar Button 1")
-    st.button("Sidebar Button 2")
+    st.write("Sidebar is visible")
+    st.button("Sidebar Button")
 
 # Main content
 st.title("Main Page")
-st.write("The default sidebar cannot be collapsed now, so it always appears after refresh.")
+st.write("The top-right toolbar is hidden now.")
