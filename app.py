@@ -989,43 +989,46 @@ if st.session_state.role == "user":
                     "details": det,
                     "amount": total,
                 }
-                # Inline embedded preview card shown immediately below the Save button
-                st.markdown(
-                    f"""
-                    <div style="
-                      display:flex;
-                      align-items:center;
-                      border-left:3px solid #28a745;
-                      padding:10px;
-                      border-radius:8px;
-                      background:rgba(255,255,255,0.0);
-                      backdrop-filter: blur(6px);
-                      -webkit-backdrop-filter: blur(6px);
-                      margin-top:8px;
-                    ">
-                      <div style="flex:1">
-                        <div style="font-weight:700;font-size:16px;margin-bottom:4px">
-                          aved bill — ₹{total:.2f}
-                        </div>
-                        <div style="color:FFFFFF;font-size:13px;margin-bottom:6px">
-                          Type: <strong>{btype}</strong> &nbsp;•&nbsp; Details: {det}
-                        </div>
-                        <div style="color:#666;font-size:12px">
-                          Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{emp_cid}</code>
-                          &nbsp;•&nbsp;
-                          Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{cust_cid}</code>
-                        </div>
-                      </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+    
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
-                st.session_state["items"] = get_all_items()
                 
-                
+                st.rerun()
+             # Show last saved bill if available
+            if "last_bill" in st.session_state:
+                lb = st.session_state.last_bill
+                st.markdown(
+                        f"""
+                        <div style="
+                        display:flex;
+                        align-items:center;
+                        border-left:3px solid #28a745;
+                        padding:10px;
+                        border-radius:8px;
+                        background:rgba(255,255,255,0.0);
+                        backdrop-filter: blur(6px);
+                        -webkit-backdrop-filter: blur(6px);
+                        margin-top:8px;
+                        ">
+                        <div style="flex:1">
+                            <div style="font-weight:700;font-size:16px;margin-bottom:4px">
+                            Saved bill — ₹{lb['amount']:.2f}
+                            </div>
+                            <div style="color:#FFFFFF;font-size:13px;margin-bottom:6px">
+                            Type: <strong>{lb['billing_type']}</strong> &nbsp;•&nbsp; Details: {lb['details']}
+                            </div>
+                            <div style="color:#666;font-size:12px">
+                            Seller CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{lb['employee_cid']}</code>
+                            &nbsp;•&nbsp;
+                            Customer CID: <code style="background:rgb(239 239 239 / 10%);padding:2px 6px;border-radius:4px">{lb['customer_cid']}</code>
+                            </div>
+                        </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+            )
+
 
 
     # MEMBERSHIP FORM (user only)
