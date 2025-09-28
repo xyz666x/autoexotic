@@ -935,10 +935,7 @@ if st.session_state.role == "user":
 
         if btype == "ITEMS":
             sel = {}
-            items = st.session_state["items"]
-            if not items:
-                items = get_all_items()
-                st.session_state["items"] = items
+            items = get_all_items()
             for item, price, stock in items:
                 q = st.number_input(f"{item} (₹{price}, Stock: {stock}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
                 if q:
@@ -981,10 +978,7 @@ if st.session_state.role == "user":
                 st.warning("Fill all fields.")
             else:
                 save_bill(emp_cid, cust_cid, btype, det, total)
-                # Deduct stock for items
-                for item, qty in sel.items():
-                    update_item_stock(item, -qty)
-                st.session_state["items"] = get_all_items() # reset items cache
+                
 
                 st.session_state.bill_saved = True
                 st.session_state.bill_total = total
