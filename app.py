@@ -935,41 +935,16 @@ if st.session_state.role == "user":
 
         if btype == "ITEMS":
             sel = {}
-            total = 0
-
-            # --- Live stock refresh only ---
-            stock_placeholder = st.empty()
-
-            def render_items():
-                items = get_all_items()  # always fresh from DB
-                local_sel = {}
-                local_total = 0
-                for item, price, stock in items:
-                    q = st.number_input(
-                        f"{item} (₹{price}, Stock: {stock}) – Qty",
-                        min_value=0,
-                        step=1,
-                        key=f"user_items_{item}"
-                    )
-                    if q:
-                        if q > stock:
-                            st.warning(f"Not enough stock for {item}. Available: {stock}")
-                        else:
-                            local_sel[item] = q
-                            local_total += price * q
-                return local_sel, local_total
-
-            st.autorefresh(interval=1000, key="refresh_items")  # refresh every sec
-            with stock_placeholder:
-                sel, total = render_items()
-
+            items = get_all_items()
+            for item, price, stock in items:
+                q = st.number_input(f"{item} (₹{price}, Stock: {stock}) – Qty", min_value=0, step=1, key=f"user_items_{item}")
+                if q:
+                    if q > stock:
+                        st.warning(f"Not enough stock for {item}. Available: {stock}")
+                    else:
+                        sel[item] = q
+                        total += price * q
             det = ", ".join(f"{i}×{q}" for i, q in sel.items())
-
-            # Store in session so Save Bill section can access it
-            st.session_state.item_selection = sel
-            st.session_state.item_total = total
-            st.session_state.item_details = det
-
 
 
         elif btype == "UPGRADES":
@@ -1048,6 +1023,7 @@ if st.session_state.role == "user":
                 # Deduct stock for items
                 for item, qty in sel.items():
                     update_item_stock(item, -qty)
+                st.session_state["items"] = get_all_items()
                 
                 
 
