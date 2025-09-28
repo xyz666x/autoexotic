@@ -977,6 +977,11 @@ if st.session_state.role == "user":
             if not emp_cid or not cust_cid or total == 0:
                 st.warning("Fill all fields.")
             else:
+                
+                if btype == "ITEMS":
+                    # Deduct stock
+                    for item, q in sel.items():
+                        update_item_stock(item, -q)
                 save_bill(emp_cid, cust_cid, btype, det, total)
 
                 st.session_state.bill_saved = True
@@ -1020,15 +1025,6 @@ if st.session_state.role == "user":
                     """,
                     unsafe_allow_html=True,
                 )
-                # Update stock for items sold
-                if btype == "ITEMS" and sel:
-                    for item, q in sel.items():
-                        update_item_stock(item, -q)
-
-                st.success("Bill saved and stock updated.")
-                # Refresh the app so the item stock values shown in the form reflect the DB changes
-                st.experimental_rerun()
-
     # MEMBERSHIP FORM (user only)
     st.markdown("---")
     st.subheader("🎟️ Manage Membership")
