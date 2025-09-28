@@ -871,25 +871,6 @@ with st.sidebar:
         st.rerun()
 
 
-# ---------- SIDEBAR STATE ----------
-if "sidebar_state" not in st.session_state:
-    st.session_state.sidebar_state = "expanded"  # default
-
-def toggle_sidebar():
-    st.session_state.sidebar_state = (
-        "collapsed" if st.session_state.sidebar_state == "expanded" else "expanded"
-    )
-    st.experimental_rerun()  # refresh to apply
-
-# Global toggle button
-st.button("Toggle Sidebar", on_click=toggle_sidebar)
-
-# Apply sidebar state globally
-st.set_page_config(
-    page_title="My App",
-    layout="wide",
-    initial_sidebar_state=st.session_state.sidebar_state
-)
 
 
 # ---------- USER PANEL ----------
