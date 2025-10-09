@@ -797,59 +797,28 @@ def end_shift(employee_cid):
 
 # ---------- AUTHENTICATION ----------
 def login(u, p):
-    # Admin/backdoor
-    if u.lower() == "owner" and p == "owner666":
-        st.session_state.logged_in = True
-        st.session_state.role = "admin"
-        st.session_state.username = u
-        st.session_state.display_name = "Owner"
-        st.success("Logged in as admin")
-        st.rerun() 
-        return
-
-    uname_input = (u or "").strip().lower()
-    pwd_input = (p or "").strip().lower()
-
-    # Connect to DB
-    conn = sqlite3.connect("auto_exotic_billing.db")
-    row = conn.execute("SELECT cid, name, rank FROM employees").fetchall()
-    conn.close()
-
-    # Find employee by first name (case-insensitive)
-    emp = None
-    for r in row:
-        cid = r[0] or ""
-        fullname = r[1] or ""
-        first_name = fullname.strip().split()[0].lower() if fullname.strip() else ""
-        if first_name == uname_input:
-            emp = r
-            break
-
-    if not emp:
-        st.error("Invalid credentials")
-        return
-
-    cid = emp[0]
-    fullname = emp[1]
-
-    # Helper to get first up-to-n alphanumeric characters
-    def first_n_alnum(s: str, n: int = 4) -> str:
-        s_clean = "".join(ch for ch in (s or "") if ch.isalnum())
-        return s_clean[:n].lower() if s_clean else ""
-
-    # Password rule
-    expected = first_n_alnum(fullname.split()[0], 4) + first_n_alnum(cid, 4)
-
-    if pwd_input == expected:
-        st.session_state.logged_in = True
-        st.session_state.role = "user"
-        st.session_state.username = fullname.split()[0]  # first name as username
-        st.session_state.display_name = fullname
-        st.success(f"Logged in as user {fullname}")
-        st.rerun() 
+    if u == "owner" and p == "owner666":
+        st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "admin", u
+    elif u == "emp" and p == "emp123":
+        st.session_state.logged_in, st.session_state.role, st.session_state.username = True, "user", u
     else:
         st.error("Invalid credentials")
 
+
+if not st.session_state.logged_in:
+    st.title("🧾 ExoticBill Login")
+    with st.form("login_form"):
+        uname = st.text_input("Username")
+        pwd = st.text_input("Password", type="password")
+        if st.form_submit_button("Login"):
+            login(uname, pwd)
+    st.stop()
+
+with st.sidebar:
+    st.success(f"Logged in as: {st.session_state.username}")
+    if st.button("Logout"):
+        st.session_state.clear()
+        st.rerun()
 
 # ---------- LOGIN FORM ----------
 if not st.session_state.logged_in:
@@ -904,14 +873,9 @@ if st.session_state.role == "user":
 
     emp_cid_locked = _resolve_logged_in_cid()
 
-    # Shift controls (CID prefilled & locked if resolved)
     st.markdown("### ⏱️ Shift Controls")
     with st.container():
-        if emp_cid_locked:
-            st.text_input("Your CID for Shift", value=emp_cid_locked, disabled=True, key="user_shift_cid_locked")
-            cid_for_shift = emp_cid_locked
-        else:
-            cid_for_shift = st.text_input("Your CID for Shift", key="user_shift_cid")
+        cid_for_shift = st.text_input("Your CID for Shift", key="user_shift_cid")
         colA, colB = st.columns(2)
         with colA:
             if st.button("▶️ Start Shift"):
@@ -929,16 +893,12 @@ if st.session_state.role == "user":
                     st.warning("Enter your CID to end shift.")
 
     st.markdown("---")
-    btype = st.selectbox("Select Billing Type", ["ITEMS", "UPGRADES", "REPAIR", "CUSTOMIZATION"])
+    btype = st.selectbox("Select Billing Type", ["UPGRADES", "CUSTOMIZATION"])
     rtype = st.radio("Repair Type", ["Normal Repair", "Advanced Repair"]) if btype == "REPAIR" else None
 
-    with st.form("bill_form", clear_on_submit=True):
-        # Employee CID: prefills and is locked when available
-        if emp_cid_locked:
-            emp_cid = st.text_input("Your CID (Employee)", value=emp_cid_locked, disabled=True, key="user_emp_cid_locked")
-        else:
-            emp_cid = st.text_input("Your CID (Employee)")
-
+    
+   with st.form("bill_form", clear_on_submit=True):
+        emp_cid = st.text_input("Your CID (Employee)")
         cust_cid = st.text_input("Customer CID")
         total, det = 0.0, ""
 
@@ -1087,47 +1047,47 @@ if st.session_state.role == "user":
             st.info(f"No active membership for {lookup}")
 
     # MONTHLY SHIFT LOGS & TOTAL WORKING HOURS
-    st.markdown("---")
-    st.subheader("🗓️ This Month — Shift Summary")
-    if emp_cid_locked:
-        now = datetime.now(IST)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        conn = sqlite3.connect("auto_exotic_billing.db")
-        try:
-            rows = conn.execute("""
-                SELECT id, employee_cid, start_ts, end_ts, COALESCE(duration_minutes,0), COALESCE(bills_count,0), COALESCE(revenue,0.0)
-                FROM shifts
-                WHERE employee_cid = ?
-                  AND start_ts >= ?
-                ORDER BY COALESCE(end_ts, start_ts) DESC
-            """, (emp_cid_locked, month_start.strftime("%Y-%m-%d %H:%M:%S"))).fetchall()
-        finally:
-            conn.close()
+    # st.markdown("---")
+    # st.subheader("🗓️ This Month — Shift Summary")
+    # if emp_cid_locked:
+    #     now = datetime.now(IST)
+    #     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    #     conn = sqlite3.connect("auto_exotic_billing.db")
+    #     try:
+    #         rows = conn.execute("""
+    #             SELECT id, employee_cid, start_ts, end_ts, COALESCE(duration_minutes,0), COALESCE(bills_count,0), COALESCE(revenue,0.0)
+    #             FROM shifts
+    #             WHERE employee_cid = ?
+    #               AND start_ts >= ?
+    #             ORDER BY COALESCE(end_ts, start_ts) DESC
+    #         """, (emp_cid_locked, month_start.strftime("%Y-%m-%d %H:%M:%S"))).fetchall()
+    #     finally:
+    #         conn.close()
 
-        total_minutes = sum((r[4] or 0) for r in rows)
-        total_hours = total_minutes / 60.0
-        # display name if available
-        display_name = st.session_state.get("display_name") or ""
-        st.metric("Employee", f"{display_name} ({emp_cid_locked})")
-        hours, minutes = divmod(int(total_minutes), 60)
-        st.metric("Total Working Hours (this month)", f"{hours}hr {minutes} min")
+    #     total_minutes = sum((r[4] or 0) for r in rows)
+    #     total_hours = total_minutes / 60.0
+    #     # display name if available
+    #     display_name = st.session_state.get("display_name") or ""
+    #     st.metric("Employee", f"{display_name} ({emp_cid_locked})")
+    #     hours, minutes = divmod(int(total_minutes), 60)
+    #     st.metric("Total Working Hours (this month)", f"{hours}hr {minutes} min")
 
-        if rows:
-            table_rows = []
-            for sid, cid, start_ts, end_ts, mins, bills, revenue in rows:
-                table_rows.append({
-                    "Shift ID": sid,
-                    "Start": start_ts,
-                    "End": end_ts or "ONGOING",
-                    "Duration (min)": mins,
-                    "Bills": bills,
-                    "Revenue": f"₹{revenue:.2f}"
-                })
-            st.dataframe(pd.DataFrame(table_rows), width="stretch")
-        else:
-            st.info("No shifts recorded for this month.")
-    else:
-        st.info("Could not determine your CID automatically. Start a shift or contact admin to link your account.")
+    #     if rows:
+    #         table_rows = []
+    #         for sid, cid, start_ts, end_ts, mins, bills, revenue in rows:
+    #             table_rows.append({
+    #                 "Shift ID": sid,
+    #                 "Start": start_ts,
+    #                 "End": end_ts or "ONGOING",
+    #                 "Duration (min)": mins,
+    #                 "Bills": bills,
+    #                 "Revenue": f"₹{revenue:.2f}"
+    #             })
+    #         st.dataframe(pd.DataFrame(table_rows), width="stretch")
+    #     else:
+    #         st.info("No shifts recorded for this month.")
+    # else:
+    #     st.info("Could not determine your CID automatically. Start a shift or contact admin to link your account.")
 
 # ---------- ADMIN PANEL & MAIN MENU ----------
 elif st.session_state.role == "admin":
