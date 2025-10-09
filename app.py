@@ -820,22 +820,6 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ---------- LOGIN FORM ----------
-if not st.session_state.logged_in:
-    st.title("🧾 ExoticBill Login")
-    with st.form("login_form"):
-        uname = st.text_input("Username (first name)")
-        pwd = st.text_input("Password", type="password")
-        if st.form_submit_button("Login"):
-            login(uname, pwd)
-    st.stop()
-
-# ---------- SIDEBAR ----------
-with st.sidebar:
-    st.success(f"Logged in as: {st.session_state.username}")
-    if st.button("Logout"):
-        st.session_state.clear()
-        st.rerun()
 
 
 # ---------- USER PANEL ----------
