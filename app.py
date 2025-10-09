@@ -897,7 +897,7 @@ if st.session_state.role == "user":
     rtype = st.radio("Repair Type", ["Normal Repair", "Advanced Repair"]) if btype == "REPAIR" else None
 
     
-   with st.form("bill_form", clear_on_submit=True):
+    with st.form("bill_form", clear_on_submit=True):
         emp_cid = st.text_input("Your CID (Employee)")
         cust_cid = st.text_input("Customer CID")
         total, det = 0.0, ""
